@@ -271,6 +271,75 @@ function OSTimer({ os }: { os: OS }) {
   );
 }
 
+function ItemMapTimer({ item }: { item: { id: number; descricao?: string | null; inicioTimer?: number | null; totalPausa?: number | null; timerPausado?: boolean | null; tempoEstimado?: number | null; aguardandoPeca?: boolean | null; aguardandoAprovacao?: boolean | null; executado?: boolean | null; observacaoQualidade?: string | null } }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatSec = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const estimadoSeg = (item.tempoEstimado || 0) * 60;
+  const pausaMs = (item.totalPausa || 0) * 1000;
+  const decorrido = item.inicioTimer && !item.timerPausado
+    ? Math.max(0, Math.floor((Date.now() - item.inicioTimer - pausaMs) / 1000))
+    : item.inicioTimer
+      ? Math.max(0, Math.floor((item.inicioTimer + pausaMs - item.inicioTimer) / 1000))
+      : 0;
+  const excedeu = estimadoSeg > 0 && decorrido > estimadoSeg;
+  const restante = Math.max(0, estimadoSeg - decorrido);
+
+  const shortDesc = (() => {
+    const d = item.descricao || "";
+    const clean = d.replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\|.*$/, "");
+    return clean.length > 28 ? clean.substring(0, 28) + "…" : clean;
+  })();
+
+  const statusColor = item.aguardandoPeca
+    ? "bg-amber-50 border-amber-200 text-amber-700"
+    : item.aguardandoAprovacao
+      ? "bg-purple-50 border-purple-200 text-purple-700"
+      : excedeu
+        ? "bg-red-50 border-red-300 text-red-700"
+        : item.inicioTimer
+          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+          : "bg-slate-50 border-slate-200 text-slate-500";
+
+  const statusIcon = item.aguardandoPeca ? "📦" : item.aguardandoAprovacao ? "🔒" : item.inicioTimer ? "⏱" : "⏸";
+  const timerLabel = item.aguardandoPeca
+    ? "Aguard. peça"
+    : item.aguardandoAprovacao
+      ? "Aguard. aprov."
+      : item.inicioTimer
+        ? excedeu ? `+${formatSec(decorrido - estimadoSeg)}` : formatSec(restante)
+        : "Não iniciado";
+
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs ${statusColor}`}>
+      <span className="shrink-0">{statusIcon}</span>
+      <span className="flex-1 font-medium truncate">{shortDesc}</span>
+      {item.observacaoQualidade && (
+        <span className="shrink-0 text-[10px] text-orange-600 font-bold bg-orange-100 rounded px-1">↩</span>
+      )}
+      <span className="shrink-0 font-black tabular-nums">
+        {item.inicioTimer && !item.aguardandoPeca && !item.aguardandoAprovacao
+          ? (excedeu ? <span className="text-red-600">{timerLabel}</span> : timerLabel)
+          : timerLabel}
+      </span>
+      {estimadoSeg > 0 && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+        <span className="shrink-0 text-[10px] opacity-50">/{Math.floor(estimadoSeg / 60)}min</span>
+      )}
+    </div>
+  );
+}
+
 interface Funcionario {
   id: number;
   nome: string;
@@ -5023,6 +5092,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "borracharia" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "borracharia" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -5090,6 +5166,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "mecanica" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "mecanica" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -5154,6 +5237,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "catracas" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "catracas" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -5218,6 +5308,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "quinta_roda" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "quinta_roda" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -5282,6 +5379,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "eletrica" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "eletrica" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -5346,6 +5450,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "estrutural" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "estrutural" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -5410,6 +5521,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
+                      {selectedOSManut.itens.filter(i => i.categoria === "pneumatica" && !i.executado).length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {selectedOSManut.itens.filter(i => i.categoria === "pneumatica" && !i.executado).map(item => (
+                            <ItemMapTimer key={item.id} item={item} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
