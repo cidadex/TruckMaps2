@@ -3329,6 +3329,18 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   if (match) parsed[match[1]] = match[2];
                 });
               }
+              if (!Object.keys(parsed).some(k => k.startsWith("est-"))) {
+                selectedOS.itens.filter(i => i.categoria === "estrutural").forEach(item => {
+                  const match = item.descricao.match(/^\[([^\]]+)\]\s*(.*)/);
+                  if (match) parsed[match[1]] = match[2];
+                });
+              }
+              if (!Object.keys(parsed).some(k => k.startsWith("ele-"))) {
+                selectedOS.itens.filter(i => i.categoria === "eletrica").forEach(item => {
+                  const match = item.descricao.match(/^\[([^\]]+)\]\s*(.*)/);
+                  if (match) parsed[match[1]] = match[2];
+                });
+              }
               return parsed;
             })();
             const hasBorrachariaRodas = Object.keys(rodasData).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
@@ -3602,7 +3614,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   </div>
                 )}
 
-                {diagHasEletrica && hasEletricaRodas && selectedOS.tipoConjunto && (
+                {hasEletricaRodas && selectedOS.tipoConjunto && (
                   <div className="mt-3 pt-3 border-t border-slate-100">
                     <TruckEletricaMap
                       tipoConjunto={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
@@ -3665,7 +3677,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   </div>
                 )}
 
-                {diagHasEstrutural && hasEstruturalRodas && selectedOS.tipoConjunto && (
+                {hasEstruturalRodas && selectedOS.tipoConjunto && (
                   <div className="mt-3 pt-3 border-t border-slate-100">
                     <TruckEstruturalMap
                       tipoConjunto={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
@@ -5402,9 +5414,24 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         </div>
 
         {/* Mapas de Manutenção com ícones de processo */}
-        {selectedOSManut.rodas && selectedOSManut.tipoConjunto && (() => {
+        {selectedOSManut.tipoConjunto && (selectedOSManut.rodas || selectedOSManut.itens.some(i => i.categoria === "estrutural" || i.categoria === "eletrica" || i.categoria === "catracas" || i.categoria === "quinta_roda")) && (() => {
           try {
-            const rodasObj = JSON.parse(selectedOSManut.rodas || "{}");
+            const rodasObj: Record<string, string> = (() => {
+              const parsed: Record<string, string> = (() => { try { return JSON.parse(selectedOSManut.rodas || "{}"); } catch { return {}; } })();
+              if (!Object.keys(parsed).some(k => k.startsWith("est-"))) {
+                selectedOSManut.itens.filter(i => i.categoria === "estrutural").forEach(item => {
+                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                  if (match) parsed[match[1]] = match[2];
+                });
+              }
+              if (!Object.keys(parsed).some(k => k.startsWith("ele-"))) {
+                selectedOSManut.itens.filter(i => i.categoria === "eletrica").forEach(item => {
+                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                  if (match) parsed[match[1]] = match[2];
+                });
+              }
+              return parsed;
+            })();
             const manutStatusMap: Record<string, ManutWheelStatus> = {};
             Object.entries(rodasObj).forEach(([wheelKey, wheelDesc]) => {
               const descStr = wheelDesc as string;
@@ -7470,6 +7497,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 tipo={tipoConjunto as "bitrem" | "tritrem"}
                 rodas={rodasSelecionadas}
                 placas={{
+                  cavalo: placa,
                   sr1: placa,
                   sr2: placa2,
                   sr3: tipoConjunto === "tritrem" ? placa3 : undefined,
@@ -7494,6 +7522,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 tipo={tipoConjunto as "bitrem" | "tritrem"}
                 rodas={rodasSelecionadas}
                 placas={{
+                  cavalo: placa,
                   sr1: placa,
                   sr2: placa2,
                   sr3: tipoConjunto === "tritrem" ? placa3 : undefined,
@@ -8139,9 +8168,18 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           } catch { return null; }
         })()}
 
-        {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
+        {osAtualizada.tipoConjunto && osAtualizada.itens.some(i => i.categoria === "eletrica") && (() => {
           try {
-            const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
+            const rodasObj: Record<string, string> = (() => {
+              const parsed: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
+              if (!Object.keys(parsed).some(k => k.startsWith("ele-"))) {
+                osAtualizada.itens.filter(i => i.categoria === "eletrica").forEach(item => {
+                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                  if (match) parsed[match[1]] = match[2];
+                });
+              }
+              return parsed;
+            })();
             const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
             if (!hasEletricaPoints) return null;
             return (
@@ -8160,9 +8198,18 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           } catch { return null; }
         })()}
 
-        {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
+        {osAtualizada.tipoConjunto && osAtualizada.itens.some(i => i.categoria === "estrutural") && (() => {
           try {
-            const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
+            const rodasObj: Record<string, string> = (() => {
+              const parsed: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
+              if (!Object.keys(parsed).some(k => k.startsWith("est-"))) {
+                osAtualizada.itens.filter(i => i.categoria === "estrutural").forEach(item => {
+                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                  if (match) parsed[match[1]] = match[2];
+                });
+              }
+              return parsed;
+            })();
             const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
             if (!hasEstruturalPoints) return null;
             return (
