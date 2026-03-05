@@ -1,7 +1,30 @@
+import { useState, useEffect } from "react";
 import { Check, Wrench, RefreshCw, Package, ShieldCheck, CheckCircle2 } from "lucide-react";
 import ZoomableMap from "./ZoomableMap";
 
 type StatusTipo = "ok" | "troca" | "ferramenta";
+
+function MapItemTimer({ inicioTimer, tempoEstimado }: { inicioTimer?: number | null; tempoEstimado?: number | null }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!inicioTimer) return;
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [inicioTimer]);
+  if (!inicioTimer) return null;
+  const elapsedSec = Math.floor((Date.now() - inicioTimer) / 1000);
+  if (tempoEstimado && tempoEstimado > 0) {
+    const remainingSec = tempoEstimado * 60 - elapsedSec;
+    if (remainingSec >= 0) {
+      const remMin = Math.floor(remainingSec / 60);
+      const remSec = remainingSec % 60;
+      return <div className="text-[7px] font-black text-emerald-700 bg-emerald-100 rounded px-0.5 leading-tight whitespace-nowrap text-center">⏱{remMin}:{String(remSec).padStart(2,'0')}</div>;
+    }
+    const overSec = -remainingSec;
+    return <div className="text-[7px] font-black text-red-700 bg-red-100 rounded px-0.5 leading-tight whitespace-nowrap text-center">+{Math.floor(overSec/60)}:{String(overSec%60).padStart(2,'0')}</div>;
+  }
+  return <div className="text-[7px] font-black text-blue-700 bg-blue-100 rounded px-0.5 leading-tight whitespace-nowrap text-center">⏱{Math.floor(elapsedSec/60)}:{String(elapsedSec%60).padStart(2,'0')}</div>;
+}
 
 export interface TruckEletricaMapProps {
   tipoConjunto: "bitrem" | "tritrem";
@@ -19,6 +42,8 @@ export interface TruckEletricaMapProps {
     pecaSolicitada: string;
     aguardandoAprovacao: boolean;
     executado: boolean;
+    inicioTimer?: number | null;
+    tempoEstimado?: number | null;
   }>;
   onInfoClick?: (id: string) => void;
   onPackageClick?: (id: string) => void;
@@ -197,19 +222,22 @@ export default function TruckEletricaMap({
     const { hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (iconMode === "manutencao" && ms) {
       return (
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button type="button" onClick={() => onPackageClick?.(id)}
-            className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-            <Package className="w-3 h-3" />
-          </button>
-          <button type="button" onClick={() => onApprovalClick?.(id)}
-            className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-            <ShieldCheck className="w-3 h-3" />
-          </button>
-          <button type="button" onClick={() => onCompleteClick?.(id)}
-            className={`w-5 h-5 rounded flex items-center justify-center ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-            <CheckCircle2 className="w-3 h-3" />
-          </button>
+        <div className="flex flex-col items-center gap-0.5">
+          <MapItemTimer inicioTimer={ms.inicioTimer} tempoEstimado={ms.tempoEstimado} />
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            <button type="button" onClick={() => onPackageClick?.(id)}
+              className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+              <Package className="w-3 h-3" />
+            </button>
+            <button type="button" onClick={() => onApprovalClick?.(id)}
+              className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+              <ShieldCheck className="w-3 h-3" />
+            </button>
+            <button type="button" onClick={() => onCompleteClick?.(id)}
+              className={`w-5 h-5 rounded flex items-center justify-center ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+              <CheckCircle2 className="w-3 h-3" />
+            </button>
+          </div>
         </div>
       );
     }

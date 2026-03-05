@@ -110,6 +110,8 @@ interface ManutWheelStatus {
   descricao: string;
   tempo?: string;
   tipo?: string;
+  inicioTimer?: number | null;
+  tempoEstimado?: number | null;
 }
 
 const ACOES_MANUTENCAO = [
@@ -4959,6 +4961,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 descricao: diagDesc,
                 tempo: matchedItem?.tempoEstimado ? `${matchedItem.tempoEstimado}` : "",
                 tipo: matchedItem?.acao || "",
+                inicioTimer: matchedItem?.inicioTimer ?? null,
+                tempoEstimado: matchedItem?.tempoEstimado ?? null,
               };
             });
 
@@ -4986,7 +4990,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             })();
 
             const hasBorrachariaRodas = Object.keys(rodasObjFinal).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
-            const hasMechPoints = Object.keys(rodasObjFinal).some(k => k.includes("-p"));
+            const hasMechPoints = Object.keys(rodasObjFinal).some(k => k.includes("-p") && !k.startsWith("est-"));
             const hasCatracasPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("catr-"));
             const hasQuintaRodaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("qr-"));
             const hasEletricaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("ele-"));
