@@ -76,12 +76,6 @@ export default function TruckBorrachariaMap({
   const isBitrem   = tipo === "bitrem";
   const axlePerSR  = isBitrem ? 3 : 2;
 
-  // Cavalo always has 2 axles
-  const caveAxles = [
-    { left: "cavalo-e1-esq", right: "cavalo-e1-dir" },
-    { left: "cavalo-e2-esq", right: "cavalo-e2-dir" },
-  ];
-
   const srAxles = (srPrefix: string) =>
     Array.from({ length: axlePerSR }, (_, i) => ({
       left:  `${srPrefix}-e${i + 1}-esq`,
@@ -90,10 +84,9 @@ export default function TruckBorrachariaMap({
 
   const srs = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
 
-  const issueCount = Object.keys(rodas).filter(k => {
-    const isWheel = k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe");
-    return isWheel;
-  }).length;
+  const issueCount = Object.keys(rodas).filter(k =>
+    (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe")
+  ).length;
 
   const getState = (id: string) => {
     const val    = rodas[id] || "";
@@ -276,8 +269,6 @@ export default function TruckBorrachariaMap({
     </div>
   );
 
-  const cabColor = isBitrem ? "#16a34a" : "#dc2626";
-
   return (
     <ZoomableMap>
       <div className="w-full select-none" data-testid="truck-wheel-map">
@@ -291,17 +282,6 @@ export default function TruckBorrachariaMap({
         </div>
 
         <div style={{ width: containerW, margin: "0 auto" }}>
-
-          {/* ── Cavalo ── */}
-          <div className="flex items-center justify-center mb-1">
-            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
-              style={{ background: cabColor + "22", color: cabColor }}>
-              CAVALO{placas?.cavalo ? ` (${placas.cavalo})` : ""}
-            </span>
-          </div>
-          <BodySection axles={caveAxles} fillColor={cabColor + "18"} borderColor={cabColor} />
-
-          <Connector />
 
           {/* ── SR sections ── */}
           {srs.map((sr, idx) => (
@@ -326,13 +306,13 @@ export default function TruckBorrachariaMap({
         </div>
 
         {/* Services list */}
-        {wheelActions && Object.entries(wheelActions).filter(([id]) => {
-          return id.startsWith("cavalo-e") || (id.startsWith("sr") && id.includes("-e")) || id.endsWith("-estepe");
-        }).length > 0 && (
+        {wheelActions && Object.entries(wheelActions).filter(([id]) =>
+          (id.startsWith("sr") && id.includes("-e")) || id.endsWith("-estepe")
+        ).length > 0 && (
           <div className="mt-3 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
             {Object.entries(wheelActions).filter(([id]) =>
-              id.startsWith("cavalo-e") || (id.startsWith("sr") && id.includes("-e")) || id.endsWith("-estepe")
+              (id.startsWith("sr") && id.includes("-e")) || id.endsWith("-estepe")
             ).map(([id, action]) => (
               <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${
                 action.tipo === "ok" ? "bg-emerald-50 border border-emerald-200" :

@@ -74,25 +74,25 @@ export default function TruckMecanicaMap({
 
   const isBitrem   = tipo === "bitrem";
   const axlePerSR  = isBitrem ? 3 : 2;
+  const srList     = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
+  const srCount    = srList.length;
 
-  // Build sections: SR1, SR2 (bitrem) or SR1, SR2, SR3 (tritrem)
-  // Numbers: esq side = 1,2,...axlePerSR per SR; dir side = axlePerSR+1,...2*axlePerSR per SR
-  // Across SRs: SR1 esq: 1..axlePerSR, SR1 dir: axlePerSR+1..2*axlePerSR, SR2 esq: 2*axlePerSR+1 ...
-  const pointsPerSR = axlePerSR * 2;
+  // Global serpentine numbering:
+  // Left side goes DOWN through ALL SRs: SR1-top→SR1-bot→SR2-top→SR2-bot→SR3-top→SR3-bot = 1..totalLeft
+  // Right side goes UP through ALL SRs:  SR3-bot→SR3-top→SR2-bot→SR2-top→SR1-bot→SR1-top = totalLeft+1..total
+  const totalLeft = axlePerSR * srCount;
 
   type AxleDef = { left: string; right: string; leftNum: number; rightNum: number };
 
   const makeSRAxles = (sr: string, srIdx: number): AxleDef[] => {
-    const base = srIdx * pointsPerSR;
-    return Array.from({ length: axlePerSR }, (_, i) => ({
-      left:     `${sr}-p${i + 1}-esq`,
-      right:    `${sr}-p${i + 1}-dir`,
-      leftNum:  base + i + 1,
-      rightNum: base + axlePerSR + i + 1,
+    return Array.from({ length: axlePerSR }, (_, axleI) => ({
+      left:     `${sr}-p${axleI + 1}-esq`,
+      right:    `${sr}-p${axleI + 1}-dir`,
+      leftNum:  srIdx * axlePerSR + axleI + 1,
+      rightNum: totalLeft + (srCount - 1 - srIdx) * axlePerSR + (axlePerSR - axleI),
     }));
   };
 
-  const srList = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
   const sections = srList.map((sr, idx) => ({ sr, axles: makeSRAxles(sr, idx) }));
 
   const issueCount = Object.keys(rodas).filter(k => k.includes("-p")).length;
