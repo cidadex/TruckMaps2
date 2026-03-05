@@ -8097,11 +8097,38 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 laudo-itens-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                   {os.itens.map((item) => {
                     const cat = CATEGORIAS.find(c => c.id === item.categoria);
-                    const acaoLabel = item.acao === "ajustar" ? "AJUSTE" : item.acao === "soldar" ? "SOLDA" : item.acao === "trocar" ? "TROCA" : null;
-                    const acaoColor = item.acao === "ajustar" ? "bg-blue-100 text-blue-700" : item.acao === "soldar" ? "bg-orange-100 text-orange-700" : item.acao === "trocar" ? "bg-red-100 text-red-700" : "";
+                    const acaoLabel = item.acao === "ajustar" ? "AJUSTE" : item.acao === "soldar" ? "SOLDA" : item.acao === "trocar" ? "TROCA" : item.acao === "ok" ? "OK" : null;
+                    const acaoColor = item.acao === "ajustar" ? "bg-blue-100 text-blue-700" : item.acao === "soldar" ? "bg-orange-100 text-orange-700" : item.acao === "trocar" ? "bg-red-100 text-red-700" : item.acao === "ok" ? "bg-emerald-100 text-emerald-700" : "";
                     const itemHistorico = osHistorico.filter(h => h.osItemId === item.id);
-                    const execucoes = itemHistorico.filter(h => h.tipo === "execucao");
-                    const qualidades = itemHistorico.filter(h => h.tipo === "qualidade");
+                    const execucoes = itemHistorico.filter(h => h.tipo === "execucao").sort((a, b) => a.id - b.id);
+                    const qualidades = itemHistorico.filter(h => h.tipo === "qualidade").sort((a, b) => a.id - b.id);
+
+                    // Timeline cronológica: mesclar execuções e inspeções por id
+                    type TimelineEntry = (typeof execucoes[0] & { _tipo: "exec" }) | (typeof qualidades[0] & { _tipo: "qual" });
+                    const timeline: TimelineEntry[] = [
+                      ...execucoes.map(e => ({ ...e, _tipo: "exec" as const })),
+                      ...qualidades.map(q => ({ ...q, _tipo: "qual" as const })),
+                    ].sort((a, b) => a.id - b.id);
+
+                    // Deduplicar: manter só o ÚLTIMO conforme
+                    const lastConformeId = qualidades.filter(q => q.resultado === "conforme").slice(-1)[0]?.id;
+                    const timelineFiltrada = timeline.filter(entry => {
+                      if (entry._tipo === "qual" && entry.resultado === "conforme") {
+                        return entry.id === lastConformeId;
+                      }
+                      return true;
+                    });
+
+                    // Tempo real total de execução
+                    const tempoRealSeg = execucoes.reduce((sum, h) => sum + (h.tempoGasto || 0), 0);
+                    const tempoRealMin = tempoRealSeg > 0 ? Math.round(tempoRealSeg / 60) : null;
+
+                    // Contar tempos extras
+                    const tempoPeca = item.tempoTotalAguardandoPeca || 0;
+                    const tempoAprov = item.tempoTotalAguardandoAprovacao || 0;
+                    const temExtras = tempoRealMin !== null || tempoPeca > 0 || tempoAprov > 0;
+
+                    let execCount = 0;
 
                     return (
                       <div key={item.id} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
@@ -8111,90 +8138,86 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                           {acaoLabel && (
                             <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${acaoColor}`}>{acaoLabel}</span>
                           )}
-                          {item.executado && (
-                            <span className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold uppercase bg-emerald-100 px-2 py-0.5 rounded">
-                              <CheckCircle2 className="w-3 h-3" /> Executado
-                            </span>
-                          )}
                         </div>
 
-                        {/* Descrição e Local */}
+                        {/* Descrição */}
                         <div className="px-3 py-2">
-                          <p className="font-bold text-slate-800 text-sm">{item.descricao}</p>
-                          {(item.item || (item.item === "Outros" && item.descricaoCustom)) && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">
-                              Local: {item.item === "Outros" ? item.descricaoCustom : item.item}
-                            </p>
+                          <p className="font-bold text-slate-800 text-sm leading-snug">
+                            {item.descricao?.replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\|.*$/, "") || item.descricao}
+                          </p>
+                          {item.item && item.item !== "Outros" && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">Local: {item.item}</p>
+                          )}
+                          {item.item === "Outros" && item.descricaoCustom && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">Local: {item.descricaoCustom}</p>
                           )}
                         </div>
 
-                        {/* Tempos do Item */}
-                        <div className="px-3 py-2 border-t border-slate-100 bg-slate-50">
-                          <div className="flex flex-wrap gap-2">
-                            {item.tempoEstimado && item.tempoEstimado > 0 && (
-                              <span className="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">
-                                Est.: {item.tempoEstimado}min
+                        {/* Tempos reais (sem "Estimado") */}
+                        {temExtras && (
+                          <div className="px-3 py-1.5 border-t border-slate-100 flex flex-wrap gap-1.5">
+                            {tempoRealMin !== null && (
+                              <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-black">
+                                ⏱ Exec. real: {tempoRealMin}min
                               </span>
                             )}
-                            {item.tempoTotalAguardandoPeca && item.tempoTotalAguardandoPeca > 0 ? (
+                            {tempoPeca > 0 && (
                               <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">
-                                Aguard. Peça: {item.tempoTotalAguardandoPeca}min
+                                📦 Aguard. Peça: {tempoPeca}min
                               </span>
-                            ) : null}
-                            {item.tempoTotalAguardandoAprovacao && item.tempoTotalAguardandoAprovacao > 0 ? (
+                            )}
+                            {tempoAprov > 0 && (
                               <span className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold">
-                                Aguard. Aprov.: {item.tempoTotalAguardandoAprovacao}min
+                                🔒 Aguard. Aprov.: {tempoAprov}min
                               </span>
-                            ) : null}
-                            {(() => {
-                              const histExec = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "execucao");
-                              const totalSeg = histExec.reduce((sum, h) => sum + (h.tempoGasto || 0), 0);
-                              if (totalSeg <= 0) return null;
-                              const totalMin = Math.round(totalSeg / 60);
-                              return (
-                                <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">
-                                  Exec. real: {totalMin}min
-                                </span>
-                              );
-                            })()}
+                            )}
                           </div>
-                        </div>
+                        )}
 
-                        {/* Histórico de Execuções - Simplificado */}
-                        {(execucoes.length > 0 || qualidades.length > 0) && (
-                          <div className="px-3 py-2 border-t border-slate-200 bg-white">
-                            <h4 className="text-[9px] font-black text-slate-400 uppercase mb-2 flex items-center gap-1">
-                              <ClipboardList className="w-3 h-3" /> Histórico de Execuções
-                            </h4>
-                            <div className="space-y-1.5">
-                              {execucoes.map((exec, idx) => (
-                                <div key={exec.id} className="flex items-start gap-2 text-[9px] bg-amber-50 p-2 rounded-lg border border-amber-100">
-                                  <Wrench className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-                                  <div>
-                                    <span className="font-bold text-amber-800">Manutenção #{idx + 1}</span>
-                                    <p className="text-slate-600">Técnico: <span className="font-bold">{exec.executadoPorNome || "-"}</span></p>
-                                    {exec.tempoGasto && exec.tempoGasto > 0 && (
-                                      <p className="text-slate-500">Tempo gasto: <span className="font-bold">{Math.round(exec.tempoGasto / 60)}min</span></p>
-                                    )}
+                        {/* Timeline cronológica */}
+                        {timelineFiltrada.length > 0 && (
+                          <div className="px-3 py-2 border-t border-slate-200 bg-white space-y-1.5">
+                            {timelineFiltrada.map((entry) => {
+                              if (entry._tipo === "exec") {
+                                execCount++;
+                                const isRetrabalho = execCount > 1;
+                                return (
+                                  <div key={entry.id} className={`flex items-start gap-2 text-[9px] p-2 rounded-lg border ${isRetrabalho ? "bg-orange-50 border-orange-200" : "bg-amber-50 border-amber-100"}`}>
+                                    <Wrench className={`w-3 h-3 shrink-0 mt-0.5 ${isRetrabalho ? "text-orange-600" : "text-amber-600"}`} />
+                                    <div className="flex-1 min-w-0">
+                                      <span className={`font-black ${isRetrabalho ? "text-orange-800" : "text-amber-800"}`}>
+                                        {isRetrabalho ? "↩ Retrabalho" : "🔧 Manutenção"}
+                                      </span>
+                                      <p className="text-slate-600">Técnico: <span className="font-bold">{entry.executadoPorNome || "-"}</span></p>
+                                      {entry.tempoGasto && entry.tempoGasto > 0 && (
+                                        <p className="text-slate-500">Tempo real: <span className="font-bold text-emerald-700">{Math.round(entry.tempoGasto / 60)}min</span></p>
+                                      )}
+                                      {entry.observacao && (
+                                        <p className="text-slate-500 italic mt-0.5">"{entry.observacao}"</p>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                              {qualidades.map((qual) => (
-                                <div key={qual.id} className={`flex items-start gap-2 text-[9px] p-2 rounded-lg border ${qual.resultado === "conforme" ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
-                                  {qual.resultado === "conforme" ? (
-                                    <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
-                                  ) : (
-                                    <XCircle className="w-3 h-3 text-red-600 shrink-0 mt-0.5" />
-                                  )}
-                                  <div>
-                                    <span className={`font-bold ${qual.resultado === "conforme" ? "text-emerald-800" : "text-red-800"}`}>
-                                      Qualidade: {qual.resultado === "conforme" ? "CONFORME" : "NÃO CONFORME"}
-                                    </span>
-                                    <p className="text-slate-600">Inspetor: <span className="font-bold">{qual.executadoPorNome || "-"}</span></p>
+                                );
+                              } else {
+                                const isConforme = entry.resultado === "conforme";
+                                return (
+                                  <div key={entry.id} className={`flex items-start gap-2 text-[9px] p-2 rounded-lg border ${isConforme ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
+                                    {isConforme
+                                      ? <CheckCircle className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
+                                      : <XCircle className="w-3 h-3 text-red-600 shrink-0 mt-0.5" />}
+                                    <div className="flex-1 min-w-0">
+                                      <span className={`font-black ${isConforme ? "text-emerald-800" : "text-red-800"}`}>
+                                        {isConforme ? "✅ Conforme" : "❌ Não Conforme"}
+                                      </span>
+                                      <p className="text-slate-600">Inspetor: <span className="font-bold">{entry.executadoPorNome || "-"}</span></p>
+                                      {!isConforme && entry.observacao && (
+                                        <p className="text-red-600 font-bold mt-0.5">Motivo: "{entry.observacao}"</p>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
+                                );
+                              }
+                            })}
                           </div>
                         )}
                       </div>
