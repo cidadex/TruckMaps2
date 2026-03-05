@@ -4964,16 +4964,21 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
             // Detectar se é ciclo de retrabalho (veio da qualidade com itens rejeitados)
             const isRetrabalhoManut = selectedOSManut.itens.some(i => !i.executado && i.observacaoQualidade);
-            // Se retrabalho: filtrar rodasObj para mostrar só pontos dos itens pendentes rejeitados
+            // Itens pendentes a mostrar: em retrabalho só os rejeitados; caso contrário todos não executados
+            const itensVisiveis = isRetrabalhoManut
+              ? selectedOSManut.itens.filter(i => !i.executado && !!i.observacaoQualidade)
+              : selectedOSManut.itens.filter(i => !i.executado);
+            // Filtrar rodasObj para mostrar apenas pontos dos itens visíveis
             const rodasObjFinal: Record<string, string> = (() => {
               if (!isRetrabalhoManut) return rodasObj;
-              const itensRetrabalho = selectedOSManut.itens.filter(i => !i.executado && i.observacaoQualidade);
               const filtered: Record<string, string> = {};
               Object.entries(rodasObj).forEach(([k, v]) => {
-                const descStr = (v as string).replace(/^\[(TROCA|FERRAMENTA|OK)\]\s*/, "").replace(/\s*\|.*$/, "").trim();
-                const hasMatch = itensRetrabalho.some(item => {
-                  const d = item.descricao?.trim() || "";
-                  return d === descStr || d.includes(k) || item.descricao?.includes(k);
+                const vStr = v as string;
+                // Entradas OK sempre excluídas no retrabalho
+                if (vStr.startsWith("[OK]")) return;
+                const descStr = vStr.replace(/^\[(TROCA|FERRAMENTA)\]\s*/, "").replace(/\s*\|.*$/, "").trim();
+                const hasMatch = itensVisiveis.some(item => {
+                  return item.descricao?.includes(k) || item.descricao?.trim() === descStr;
                 });
                 if (hasMatch) filtered[k] = v;
               });
@@ -5092,9 +5097,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "borracharia" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "borracharia").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "borracharia" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "borracharia").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
@@ -5166,9 +5171,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "mecanica" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "mecanica").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "mecanica" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "mecanica").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
@@ -5237,9 +5242,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "catracas" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "catracas").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "catracas" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "catracas").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
@@ -5308,9 +5313,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "quinta_roda" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "quinta_roda").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "quinta_roda" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "quinta_roda").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
@@ -5379,9 +5384,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "eletrica" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "eletrica").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "eletrica" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "eletrica").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
@@ -5450,9 +5455,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "estrutural" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "estrutural").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "estrutural" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "estrutural").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
@@ -5521,9 +5526,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {selectedOSManut.itens.filter(i => i.categoria === "pneumatica" && !i.executado).length > 0 && (
+                      {itensVisiveis.filter(i => i.categoria === "pneumatica").length > 0 && (
                         <div className="mt-3 space-y-1.5">
-                          {selectedOSManut.itens.filter(i => i.categoria === "pneumatica" && !i.executado).map(item => (
+                          {itensVisiveis.filter(i => i.categoria === "pneumatica").map(item => (
                             <ItemMapTimer key={item.id} item={item} />
                           ))}
                         </div>
