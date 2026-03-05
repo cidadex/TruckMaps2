@@ -1,0 +1,69 @@
+<?xml version="1.0" ?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="650" viewBox="0 0 800 650">
+  <defs>
+    <style>
+        .box { fill: none; stroke: #2c5aa0; stroke-width: 2; }
+        .dreno-box { fill: none; stroke: #2c5aa0; stroke-width: 2; }
+        .center-line { stroke: #c00000; stroke-width: 2; fill: none; }
+        .side-line { stroke: #2c5aa0; stroke-width: 2; fill: none; }
+        .connector { fill: #c00000; stroke: none; }
+        .text-label { font-family: Arial, sans-serif; font-size: 11px; fill: #2c5aa0; }
+        .text-title { font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; fill: #2c5aa0; text-anchor: middle; }
+    </style>
+  </defs>
+  <rect width="800" height="650" fill="white"/>
+  <text x="400" y="30" class="text-title">DIAGRAMA PNEUMÁTICO - TRITREM</text>
+  <rect x="290" y="70" width="100" height="30" class="dreno-box"/>
+  <text x="280" y="89" class="text-label" text-anchor="end">DRENO 1</text>
+  <rect x="410" y="70" width="100" height="30" class="dreno-box"/>
+  <text x="520" y="89" class="text-label" text-anchor="start">DRENO 2</text>
+  <line x1="390" y1="85" x2="410" y2="85" class="center-line"/>
+  <circle cx="400" cy="85" r="4" class="connector"/>
+  <line x1="400" y1="85" x2="400" y2="400" class="center-line"/>
+  <line x1="180" y1="130" x2="400" y2="130" class="side-line"/>
+  <line x1="180" y1="130" x2="180" y2="380" class="side-line"/>
+  <rect x="130" y="113" width="100" height="35" class="box"/>
+  <circle cx="180" cy="130" r="4" class="connector"/>
+  <line x1="180" y1="130" x2="180" y2="130" class="side-line"/>
+  <text x="120" y="134" class="text-label" text-anchor="end">POR RODADO 1</text>
+  <rect x="130" y="163" width="100" height="35" class="box"/>
+  <circle cx="180" cy="180" r="4" class="connector"/>
+  <line x1="180" y1="180" x2="180" y2="180" class="side-line"/>
+  <text x="120" y="184" class="text-label" text-anchor="end">POR RODADO 2</text>
+  <rect x="130" y="213" width="100" height="35" class="box"/>
+  <circle cx="180" cy="230" r="4" class="connector"/>
+  <line x1="180" y1="230" x2="180" y2="230" class="side-line"/>
+  <text x="120" y="234" class="text-label" text-anchor="end">POR RODADO 3</text>
+  <rect x="130" y="263" width="100" height="35" class="box"/>
+  <circle cx="180" cy="280" r="4" class="connector"/>
+  <line x1="180" y1="280" x2="180" y2="280" class="side-line"/>
+  <text x="120" y="284" class="text-label" text-anchor="end">POR RODADO 4</text>
+  <rect x="130" y="313" width="100" height="35" class="box"/>
+  <circle cx="180" cy="330" r="4" class="connector"/>
+  <line x1="180" y1="330" x2="180" y2="330" class="side-line"/>
+  <text x="120" y="334" class="text-label" text-anchor="end">POR RODADO 5</text>
+  <rect x="130" y="363" width="100" height="35" class="box"/>
+  <circle cx="180" cy="380" r="4" class="connector"/>
+  <line x1="180" y1="380" x2="180" y2="380" class="side-line"/>
+  <text x="120" y="384" class="text-label" text-anchor="end">POR RODADO 6</text>
+  <line x1="400" y1="130" x2="570" y2="130" class="side-line"/>
+  <line x1="570" y1="130" x2="570" y2="380" class="side-line"/>
+  <rect x="520" y="113" width="100" height="35" class="box"/>
+  <circle cx="570" cy="130" r="4" class="connector"/>
+  <text x="630" y="134" class="text-label" text-anchor="start">POR RODADO 12</text>
+  <rect x="520" y="163" width="100" height="35" class="box"/>
+  <circle cx="570" cy="180" r="4" class="connector"/>
+  <text x="630" y="184" class="text-label" text-anchor="start">POR RODADO 11</text>
+  <rect x="520" y="213" width="100" height="35" class="box"/>
+  <circle cx="570" cy="230" r="4" class="connector"/>
+  <text x="630" y="234" class="text-label" text-anchor="start">POR RODADO 10</text>
+  <rect x="520" y="263" width="100" height="35" class="box"/>
+  <circle cx="570" cy="280" r="4" class="connector"/>
+  <text x="630" y="284" class="text-label" text-anchor="start">POR RODADO 9</text>
+  <rect x="520" y="313" width="100" height="35" class="box"/>
+  <circle cx="570" cy="330" r="4" class="connector"/>
+  <text x="630" y="334" class="text-label" text-anchor="start">POR RODADO 8</text>
+  <rect x="520" y="363" width="100" height="35" class="box"/>
+  <circle cx="570" cy="380" r="4" class="connector"/>
+  <text x="630" y="384" class="text-label" text-anchor="start">POR RODADO 7</text>
+</svg>
