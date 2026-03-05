@@ -1130,8 +1130,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               executado: false, // Reabrir para manutenção
               observacao: novaObs,
               observacaoQualidade: obsVerificacao,
-              // Reiniciar cronômetro para novo ciclo de trabalho
-              inicioTimer: Date.now(),
+              // Não iniciar timer — o técnico deve iniciar ao começar a trabalhar
+              inicioTimer: null,
               totalPausa: 0,
               // Limpar dados do técnico anterior para novo técnico se identificar
               executadoPorId: null,
@@ -1347,10 +1347,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             observacao: item.observacaoQualidade || null,
           });
 
-          // Resetar item para retrabalho - reiniciar cronômetro
+          // Resetar item para retrabalho - não iniciar timer automaticamente
           await updateOSItem(selectedOSQual.id, itemId, { 
             executado: false,
-            inicioTimer: Date.now(), // Reiniciar cronômetro para novo ciclo
+            inicioTimer: null, // Técnico inicia ao começar a trabalhar
             totalPausa: 0,
             timerPausado: false,
             executadoPorId: null,
@@ -4823,6 +4823,15 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             )}
           </div>
 
+          {/* Badge de Retrabalho */}
+          {selectedOSManut.itens.some(i => !i.executado && i.observacaoQualidade) && (
+            <div className="mt-3 flex items-center gap-2 bg-red-100 border border-red-300 rounded-lg px-3 py-2">
+              <span className="text-red-600 font-bold text-sm">↩</span>
+              <span className="text-red-700 font-bold text-sm">Retrabalho —</span>
+              <span className="text-red-600 text-sm">{selectedOSManut.itens.filter(i => !i.executado && i.observacaoQualidade).length} item(s) rejeitados</span>
+            </div>
+          )}
+
           {/* Tempo Total Estimado e Restante */}
           {tempoTotal > 0 && (
             <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
@@ -4884,13 +4893,31 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               };
             });
 
-            const hasBorrachariaRodas = Object.keys(rodasObj).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
-            const hasMechPoints = Object.keys(rodasObj).some(k => k.includes("-p"));
-            const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-"));
-            const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-"));
-            const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
-            const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
-            const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-"));
+            // Detectar se é ciclo de retrabalho (veio da qualidade com itens rejeitados)
+            const isRetrabalhoManut = selectedOSManut.itens.some(i => !i.executado && i.observacaoQualidade);
+            // Se retrabalho: filtrar rodasObj para mostrar só pontos dos itens pendentes rejeitados
+            const rodasObjFinal: Record<string, string> = (() => {
+              if (!isRetrabalhoManut) return rodasObj;
+              const itensRetrabalho = selectedOSManut.itens.filter(i => !i.executado && i.observacaoQualidade);
+              const filtered: Record<string, string> = {};
+              Object.entries(rodasObj).forEach(([k, v]) => {
+                const descStr = (v as string).replace(/^\[(TROCA|FERRAMENTA|OK)\]\s*/, "").replace(/\s*\|.*$/, "").trim();
+                const hasMatch = itensRetrabalho.some(item => {
+                  const d = item.descricao?.trim() || "";
+                  return d === descStr || d.includes(k) || item.descricao?.includes(k);
+                });
+                if (hasMatch) filtered[k] = v;
+              });
+              return filtered;
+            })();
+
+            const hasBorrachariaRodas = Object.keys(rodasObjFinal).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
+            const hasMechPoints = Object.keys(rodasObjFinal).some(k => k.includes("-p"));
+            const hasCatracasPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("catr-"));
+            const hasQuintaRodaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("qr-"));
+            const hasEletricaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("ele-"));
+            const hasEstruturalPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("est-"));
+            const hasPneumaticaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("pneu-"));
 
             const handleMapInfo = (wId: string) => {
               setManutMapInfoWheelId(wId);
@@ -4942,7 +4969,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckBorrachariaMap
                         tipo={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         placas={placasObj}
                         showIcons={true}
                         iconMode="manutencao"
@@ -5009,7 +5036,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckMecanicaMap
                         tipo={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         placas={placasObj}
                         showIcons={true}
                         iconMode="manutencao"
@@ -5076,7 +5103,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckCatracasMap
                         tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         iconMode="manutencao"
                         manutStatus={manutStatusMap as any}
                         wheelActions={diagWheelActions}
@@ -5140,7 +5167,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckQuintaRodaMap
                         tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         iconMode="manutencao"
                         manutStatus={manutStatusMap as any}
                         wheelActions={diagWheelActions}
@@ -5204,7 +5231,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckEletricaMap
                         tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         iconMode="manutencao"
                         manutStatus={manutStatusMap as any}
                         wheelActions={diagWheelActions}
@@ -5268,7 +5295,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckEstruturalMap
                         tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         iconMode="manutencao"
                         manutStatus={manutStatusMap as any}
                         wheelActions={diagWheelActions}
@@ -5332,7 +5359,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </h4>
                       <TruckPneumaticaMap
                         tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
-                        rodas={rodasObj}
+                        rodas={rodasObjFinal}
                         iconMode="manutencao"
                         manutStatus={manutStatusMap as any}
                         wheelActions={diagWheelActions}
@@ -5711,693 +5738,87 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           </div>
         )}
 
-        {/* Itens */}
-        <div className="flex-1 overflow-y-auto p-4 pb-48 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wide flex items-center gap-2">
-              <Wrench className="w-4 h-4" />
-              Itens para Execução ({selectedOSManut.itens.length})
-            </h3>
-            <button
-              onClick={() => setShowManutAddItemForm(!showManutAddItemForm)}
-              className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-700"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar Item
-            </button>
-          </div>
 
-          {/* Form para adicionar novo item (igual ao diagnóstico) */}
-          {showManutAddItemForm && (
-            <Card className="p-4 bg-amber-50 border-2 border-amber-200 border-dashed space-y-4">
+        {/* Add Item Form (modal-like, above footer) */}
+        {showManutAddItemForm && (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setShowManutAddItemForm(false)}>
+            <div className="w-full bg-white rounded-t-2xl p-5 shadow-2xl max-h-[85vh] overflow-y-auto space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-2" />
               <h4 className="font-bold text-amber-800">Novo Item de Manutenção</h4>
-
-              {/* Categoria */}
               <div>
                 <label className="text-xs font-medium text-slate-500 mb-2 block">Categoria <span className="text-red-500">*</span></label>
                 <Select value={manutNovoItemCat} onValueChange={(v) => { setManutNovoItemCat(v); setManutNovoItemItem(""); setManutNovoItemItemCustom(""); }}>
-                  <SelectTrigger className="h-12 bg-white">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map(cat => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger className="h-12 bg-white"><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
+                  <SelectContent>{CATEGORIAS.map(cat => (<SelectItem key={cat.id} value={cat.id}>{cat.label}</SelectItem>))}</SelectContent>
                 </Select>
               </div>
-
-              {/* Item específico */}
               {manutNovoItemCat && (
                 <div>
                   <label className="text-xs font-medium text-slate-500 mb-2 block">Item <span className="text-red-500">*</span></label>
                   <Select value={manutNovoItemItem} onValueChange={setManutNovoItemItem}>
-                    <SelectTrigger className="h-12 bg-white">
-                      <SelectValue placeholder="Selecione o item" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CATEGORIAS_ITENS[manutNovoItemCat as keyof typeof CATEGORIAS_ITENS]?.itens.map(item => (
-                        <SelectItem key={item} value={item}>{item}</SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectTrigger className="h-12 bg-white"><SelectValue placeholder="Selecione o item" /></SelectTrigger>
+                    <SelectContent>{CATEGORIAS_ITENS[manutNovoItemCat as keyof typeof CATEGORIAS_ITENS]?.itens.map(item => (<SelectItem key={item} value={item}>{item}</SelectItem>))}</SelectContent>
                   </Select>
-                  {manutNovoItemItem === "Outros" && (
-                    <Input
-                      placeholder="Especifique o item..."
-                      value={manutNovoItemItemCustom}
-                      onChange={(e) => setManutNovoItemItemCustom(e.target.value)}
-                      className="h-12 bg-white mt-2"
-                    />
-                  )}
+                  {manutNovoItemItem === "Outros" && (<Input placeholder="Especifique o item..." value={manutNovoItemItemCustom} onChange={(e) => setManutNovoItemItemCustom(e.target.value)} className="h-12 bg-white mt-2" />)}
                 </div>
               )}
-
-              {/* Descrição do problema */}
               <div>
                 <label className="text-xs font-medium text-slate-500 mb-2 block">Descrição do Problema <span className="text-red-500">*</span></label>
-                <Input
-                  placeholder="Descreva o problema encontrado"
-                  value={manutNovoItemDesc}
-                  onChange={(e) => setManutNovoItemDesc(e.target.value)}
-                  className="h-12 bg-white"
-                />
+                <Input placeholder="Descreva o problema encontrado" value={manutNovoItemDesc} onChange={(e) => setManutNovoItemDesc(e.target.value)} className="h-12 bg-white" />
               </div>
-
-              {/* Ação */}
               <div>
-                <label className="text-xs font-medium text-slate-500 mb-2 block">Ação <span className="text-red-500">*</span></label>
-                <div className="flex gap-2">
+                <label className="text-xs font-medium text-slate-500 mb-2 block">Ação Necessária <span className="text-red-500">*</span></label>
+                <div className="grid grid-cols-3 gap-2">
                   {ACOES_MANUTENCAO.map(acao => (
-                    <button
-                      key={acao.id}
-                      onClick={() => setManutNovoItemAcao(acao.id)}
-                      className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${
-                        manutNovoItemAcao === acao.id 
-                          ? `${acao.color} text-white shadow-md` 
-                          : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                      }`}
-                    >
-                      {acao.label}
-                    </button>
+                    <button key={acao.id} onClick={() => setManutNovoItemAcao(acao.id)} className={`py-3 rounded-xl font-bold text-sm transition-all ${manutNovoItemAcao === acao.id ? `${acao.color} text-white shadow-md` : 'bg-slate-100 text-slate-600'}`}>{acao.label}</button>
                   ))}
                 </div>
               </div>
-
-              {/* Tempo Estimado */}
               <div>
-                <label className="text-xs font-medium text-slate-500 mb-2 block">
-                  Tempo Estimado <span className="text-red-500">*</span>
-                  {manutNovoItemTempo && manutNovoItemTempo > 0 && <span className="text-emerald-600 ml-2">✓ {manutNovoItemTempo} min</span>}
-                </label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {TEMPOS_PRESET.map(tempo => (
-                    <button
-                      key={tempo}
-                      onClick={() => setManutNovoItemTempo(tempo)}
-                      className={`px-4 py-2 rounded-xl font-bold text-sm transition-colors ${
-                        manutNovoItemTempo === tempo 
-                          ? 'bg-emerald-500 text-white' 
-                          : 'bg-white hover:bg-emerald-100 hover:text-emerald-700 text-slate-700 border border-slate-200'
-                      }`}
-                    >
-                      {tempo}'
-                    </button>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500">Ou insira:</span>
-                  <input
-                    type="time"
-                    value={manutNovoItemTempo ? `${String(Math.floor(manutNovoItemTempo / 60)).padStart(2, '0')}:${String(manutNovoItemTempo % 60).padStart(2, '0')}` : ''}
-                    onChange={(e) => {
-                      const [hours, mins] = e.target.value.split(':').map(Number);
-                      const totalMinutos = (hours * 60) + mins;
-                      if (totalMinutos > 0) setManutNovoItemTempo(totalMinutos);
-                    }}
-                    className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-medium bg-white"
-                  />
-                  <span className="text-xs text-slate-400">(HH:MM)</span>
+                <label className="text-xs font-medium text-slate-500 mb-2 block">Tempo Estimado <span className="text-red-500">*</span></label>
+                <div className="flex gap-2 flex-wrap">
+                  {TEMPOS_PRESET.map(t => (<button key={t} onClick={() => setManutNovoItemTempo(String(t))} className={`px-3 py-2 rounded-lg font-bold text-sm ${manutNovoItemTempo === String(t) ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'}`}>{t}min</button>))}
+                  <Input placeholder="Outro..." value={TEMPOS_PRESET.includes(Number(manutNovoItemTempo)) ? "" : manutNovoItemTempo} onChange={(e) => setManutNovoItemTempo(e.target.value)} className="h-10 w-24 bg-white" />
                 </div>
               </div>
-
-              {/* Botões */}
               <div className="flex gap-2 pt-2">
+                <button onClick={() => setShowManutAddItemForm(false)} className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">Cancelar</button>
                 <button
-                  onClick={() => { 
-                    setShowManutAddItemForm(false); 
-                    setManutNovoItemCat(""); 
-                    setManutNovoItemDesc(""); 
-                    setManutNovoItemItem("");
-                    setManutNovoItemItemCustom("");
-                    setManutNovoItemAcao("");
-                    setManutNovoItemTempo(null);
-                  }}
-                  className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => handleManutAddItem(selectedOSManut.id)}
+                  onClick={() => { handleManutAddItem(selectedOSManut.id); setShowManutAddItemForm(false); }}
                   disabled={!manutNovoItemCat || !manutNovoItemDesc.trim() || !manutNovoItemItem || (manutNovoItemItem === "Outros" && !manutNovoItemItemCustom.trim()) || !manutNovoItemAcao || !manutNovoItemTempo}
-                  className="flex-1 py-3 bg-amber-500 disabled:bg-slate-300 text-white rounded-xl font-bold"
-                >
-                  Adicionar
-                </button>
+                  className="flex-1 py-3 bg-amber-500 disabled:bg-slate-300 text-white rounded-xl font-bold text-sm"
+                >Adicionar</button>
               </div>
-            </Card>
-          )}
-
-          {selectedOSManut.itens.length === 0 && (
-            <div className="text-center py-8">
-              <Wrench className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-slate-500">Nenhum item cadastrado</p>
-              <p className="text-sm text-slate-400">Adicione itens usando o botão acima</p>
             </div>
-          )}
-
-          {selectedOSManut.itens.map((item, idx) => {
-            const catInfo = CATEGORIAS.find(c => c.id === item.categoria);
-            const Icon = catInfo?.icon || Wrench;
-            const isEditing = manutEditingItemId === item.id;
-            const isEditingObs = manutObsItemId === item.id;
-
-            return (
-              <Card key={item.id} className={`p-4 bg-white shadow-sm ${item.executado ? 'border-l-4 border-l-emerald-500 opacity-75' : 'border-l-4 border-l-amber-500'}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className={`p-2 rounded-lg ${item.executado ? 'bg-emerald-100' : `bg-gradient-to-br ${catInfo?.color || 'from-slate-400 to-slate-600'}`}`}>
-                      {item.executado ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                      ) : (
-                        <Icon className="w-5 h-5 text-white" />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <span className="text-xs text-slate-400 font-medium">ITEM {idx + 1} • {catInfo?.label}</span>
-                          {isEditing ? (
-                            <div className="mt-2">
-                              <div className="text-[11px] font-bold text-blue-700 mb-1 uppercase">Nota técnica (Manutenção)</div>
-                              <Textarea
-                                value={manutEditingItemDesc}
-                                onChange={(e) => setManutEditingItemDesc(e.target.value)}
-                                className="min-h-[88px] bg-white"
-                                placeholder="Ex.: o que foi feito, medidas tomadas, observações, retrabalho..."
-                                autoFocus
-                              />
-                              <div className="flex gap-2 mt-2">
-                                <button
-                                  onClick={() => handleManutEditItem(selectedOSManut.id, item.id)}
-                                  className="px-3 py-2 bg-emerald-500 text-white rounded-lg text-sm font-bold"
-                                >
-                                  Salvar
-                                </button>
-                                <button
-                                  onClick={() => { setManutEditingItemId(null); setManutEditingItemDesc(""); }}
-                                  className="px-3 py-2 bg-slate-200 text-slate-600 rounded-lg text-sm font-bold"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <p className="font-semibold text-slate-800 leading-snug">{item.descricao}</p>
-                              {(item.item || item.acao) && (
-                                <div className="flex flex-wrap gap-1.5 mt-1">
-                                  {item.item && (
-                                    <Badge variant="outline" className="text-[10px] bg-slate-50 border-slate-200 text-slate-600 font-bold px-1.5 h-5">
-                                      {item.item === "Outros" && item.descricaoCustom ? item.descricaoCustom : item.item}
-                                    </Badge>
-                                  )}
-                                  {item.acao && (
-                                    <Badge className={`text-[10px] border-0 text-white font-bold px-1.5 h-5 ${
-                                      item.acao === "ajustar" ? "bg-blue-500" :
-                                      item.acao === "soldar" ? "bg-orange-500" :
-                                      "bg-red-500"
-                                    }`}>
-                                      {item.acao === "ajustar" ? "Ajustar" : item.acao === "soldar" ? "Soldar" : "Trocar"}
-                                    </Badge>
-                                  )}
-                                  {item.tempoEstimado && (
-                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 border-emerald-200 text-emerald-700 flex items-center gap-1 font-bold px-1.5 h-5">
-                                      <Timer className="w-2.5 h-2.5" />
-                                      {item.tempoEstimado}'
-                                    </Badge>
-                                  )}
-                                </div>
-                              )}
-                              {/* Cronômetro Individual do Item */}
-                              {!item.executado && (() => {
-                                const formatT = (s: number) => {
-                                  const h = Math.floor(s / 3600);
-                                  const m = Math.floor((s % 3600) / 60);
-                                  const ss = s % 60;
-                                  if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
-                                  return `${m}:${ss.toString().padStart(2, '0')}`;
-                                };
-                                if (item.aguardandoPeca) {
-                                  const restMin = Math.max(0, (item.tempoEstimado || 0) - (item.tempoExecutadoAntesAguardarPeca || 0));
-                                  return (
-                                    <div className="mt-2 p-2 rounded-lg flex items-center gap-2 bg-amber-50 border border-amber-200">
-                                      <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                                      <span className="text-xs font-black text-amber-700">AGUARD. PEÇA</span>
-                                      <span className="text-xs text-amber-600">cronômetro congelado</span>
-                                      {restMin > 0 && <span className="text-xs font-bold text-amber-800 ml-auto">{restMin}min restantes</span>}
-                                    </div>
-                                  );
-                                }
-                                if (item.aguardandoAprovacao) {
-                                  const restMin = Math.max(0, (item.tempoEstimado || 0) - (item.tempoExecutadoAntesAguardarAprovacao || 0));
-                                  return (
-                                    <div className="mt-2 p-2 rounded-lg flex items-center gap-2 bg-purple-50 border border-purple-200">
-                                      <Lock className="w-4 h-4 text-purple-600 shrink-0" />
-                                      <span className="text-xs font-black text-purple-700">AGUARD. APROVAÇÃO</span>
-                                      <span className="text-xs text-purple-600">cronômetro congelado</span>
-                                      {restMin > 0 && <span className="text-xs font-bold text-purple-800 ml-auto">{restMin}min restantes</span>}
-                                    </div>
-                                  );
-                                }
-                                if (item.inicioTimer) {
-                                  const pausaMs = (item.totalPausa || 0) * 1000;
-                                  const decorrido = Math.floor((Date.now() - item.inicioTimer - pausaMs) / 1000);
-                                  const estimadoSeg = (item.tempoEstimado || 0) * 60;
-                                  const restante = Math.max(0, estimadoSeg - decorrido);
-                                  const excedeu = estimadoSeg > 0 && decorrido > estimadoSeg;
-                                  const excedido = excedeu ? decorrido - estimadoSeg : 0;
-                                  return (
-                                    <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 border ${excedeu ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                                      <Timer className={`w-4 h-4 shrink-0 ${excedeu ? 'text-red-600' : 'text-emerald-600'}`} />
-                                      <span className={`text-base font-black tabular-nums ${excedeu ? 'text-red-700' : 'text-emerald-700'}`}>
-                                        {excedeu ? `+${formatT(excedido)}` : formatT(restante)}
-                                      </span>
-                                      <span className={`text-xs ${excedeu ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        {excedeu ? 'excedido' : 'restante'}
-                                      </span>
-                                      {item.tempoEstimado && (
-                                        <span className="text-[10px] text-slate-400 ml-auto">{item.tempoEstimado}min est.</span>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-                              {/* Observação da Qualidade (retrabalho) */}
-                              {item.observacaoQualidade && (
-                                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg">
-                                  <p className="text-xs font-bold text-red-700 mb-1">Retorno da Verificação Final:</p>
-                                  <p className="text-xs text-red-600 italic">"{item.observacaoQualidade}"</p>
-                                </div>
-                              )}
-
-                              {/* Nota técnica já registrada (somente visualização rápida) */}
-                              {(item as any).observacao && (
-                                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-                                  <p className="text-xs font-bold text-blue-700 mb-1">Nota técnica:</p>
-                                  <p className="text-xs text-blue-700 whitespace-pre-wrap">{(item as any).observacao}</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                    </div>
-                  </div>
-                  {!isEditing && !item.executado && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => {
-                          if (item.aguardandoPeca) {
-                            handleUpdateItemPeca(selectedOSManut.id, item.id, false);
-                          } else {
-                            setManutPecaItemId(item.id);
-                            setManutPecaText("");
-                          }
-                        }}
-                        className={`p-2 rounded-lg transition-colors ${item.aguardandoPeca ? 'text-amber-600 bg-amber-50' : 'text-slate-400 hover:text-amber-600 hover:bg-amber-50'}`}
-                        title={item.aguardandoPeca ? "Peça Recebida" : "Aguardando Peça"}
-                      >
-                        <Package className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (item.aguardandoAprovacao) {
-                            handleUpdateItemAprovacao(selectedOSManut.id, item.id, false);
-                          } else {
-                            setManutAprovacaoItemId(item.id);
-                            setManutAprovacaoText("");
-                          }
-                        }}
-                        className={`p-2 rounded-lg transition-colors ${item.aguardandoAprovacao ? 'text-purple-600 bg-purple-50' : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50'}`}
-                        title={item.aguardandoAprovacao ? "Aprovação Concedida" : "Solicitar Aprovação"}
-                      >
-                        <ShieldCheck className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => { setManutEditingItemId(item.id); setManutEditingItemDesc((item as any).observacao || ""); }}
-                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Nota técnica"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => { setManutObsItemId(item.id); setManutObsText(item.observacao || ""); }}
-                        className={`p-2 rounded-lg transition-colors ${item.observacao ? 'text-purple-600 bg-purple-50' : 'text-slate-400 hover:text-purple-600 hover:bg-purple-50'}`}
-                        title="Observação"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleManutDeleteItem(selectedOSManut.id, item.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Modal Simplificado para Peça */}
-                {manutPecaItemId === item.id && (
-                  <div className="mb-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
-                    <label className="text-xs font-bold text-amber-700 mb-2 block uppercase">Qual peça está aguardando?</label>
-                    <div className="flex gap-2">
-                      <Input 
-                        value={manutPecaText}
-                        onChange={(e) => setManutPecaText(e.target.value)}
-                        placeholder="Ex: Válvula de freio..."
-                        className="h-9 text-sm border-amber-200 focus-visible:ring-amber-500 bg-white"
-                        autoFocus
-                      />
-                      <Button 
-                        size="sm" 
-                        className="bg-amber-600 hover:bg-amber-700 h-9"
-                        onClick={() => {
-                          if (manutPecaText.trim()) {
-                            handleUpdateItemPeca(selectedOSManut.id, item.id, true, manutPecaText);
-                            setManutPecaItemId(null);
-                            setManutPecaText("");
-                          }
-                        }}
-                      >
-                        Ok
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-9 text-slate-400"
-                        onClick={() => {
-                          setManutPecaItemId(null);
-                          setManutPecaText("");
-                        }}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Status Aguardando Peça */}
-                {item.aguardandoPeca && item.pecaSolicitada && (() => {
-                  const tempoEstimado = item.tempoEstimado || 0;
-                  const tempoJaExecutado = item.tempoExecutadoAntesAguardarPeca || 0;
-                  const tempoCongelado = Math.max(0, tempoEstimado - tempoJaExecutado);
-                  const tempoCongeladoH = Math.floor(tempoCongelado / 60);
-                  const tempoCongeladoM = tempoCongelado % 60;
-                  const tempoAguardando = item.inicioAguardandoPeca ? Math.floor((Date.now() - item.inicioAguardandoPeca) / 1000) : 0;
-                  const aguardandoDias = Math.floor(tempoAguardando / 86400);
-                  const aguardandoHoras = Math.floor((tempoAguardando % 86400) / 3600);
-                  const aguardandoMin = Math.floor((tempoAguardando % 3600) / 60);
-                  return (
-                  <div className="mb-3 p-3 bg-amber-50 rounded-xl border border-amber-200">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-2">
-                        <Package className="w-4 h-4 text-amber-600 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-amber-800 uppercase">Aguardando Peça</span>
-                          <p className="text-sm text-amber-700 font-medium">{item.pecaSolicitada}</p>
-                          <div className="flex gap-3 mt-1">
-                            <span className="text-[10px] text-amber-600 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span className="font-bold">{tempoCongeladoH > 0 ? `${tempoCongeladoH}h ` : ""}{tempoCongeladoM}min</span> congelado
-                            </span>
-                            <span className="text-[10px] text-amber-600 flex items-center gap-1">
-                              <Timer className="w-3 h-3" />
-                              <span className="font-bold">
-                                {aguardandoDias > 0 ? `${aguardandoDias}d ` : ""}
-                                {aguardandoHoras > 0 ? `${aguardandoHoras}h ` : ""}
-                                {aguardandoMin}min
-                              </span> aguardando
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 border-amber-200 text-amber-700 hover:bg-amber-100"
-                        onClick={() => handleUpdateItemPeca(selectedOSManut.id, item.id, false)}
-                      >
-                        Peça Chegou
-                      </Button>
-                    </div>
-                  </div>
-                  );
-                })()}
-
-                {/* Modal Simplificado para Aprovação */}
-                {manutAprovacaoItemId === item.id && (
-                  <div className="mb-3 p-3 bg-purple-50 rounded-xl border border-purple-200">
-                    <label className="text-xs font-bold text-purple-700 mb-2 block uppercase">Motivo da solicitação de aprovação</label>
-                    <div className="flex gap-2">
-                      <Input 
-                        value={manutAprovacaoText}
-                        onChange={(e) => setManutAprovacaoText(e.target.value)}
-                        placeholder="Ex: Troca de peça não prevista..."
-                        className="h-9 text-sm border-purple-200 focus-visible:ring-purple-500 bg-white"
-                        autoFocus
-                      />
-                      <Button 
-                        size="sm" 
-                        className="bg-purple-600 hover:bg-purple-700 h-9"
-                        onClick={() => {
-                          if (manutAprovacaoText.trim()) {
-                            handleUpdateItemAprovacao(selectedOSManut.id, item.id, true, manutAprovacaoText);
-                            setManutAprovacaoItemId(null);
-                            setManutAprovacaoText("");
-                          }
-                        }}
-                      >
-                        Ok
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-9 text-slate-400"
-                        onClick={() => {
-                          setManutAprovacaoItemId(null);
-                          setManutAprovacaoText("");
-                        }}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Status Aguardando Aprovação */}
-                {item.aguardandoAprovacao && item.motivoAprovacao && (() => {
-                  const tempoEstimado = item.tempoEstimado || 0;
-                  const tempoJaExecutado = item.tempoExecutadoAntesAguardarAprovacao || 0;
-                  const tempoCongelado = Math.max(0, tempoEstimado - tempoJaExecutado);
-                  const tempoCongeladoH = Math.floor(tempoCongelado / 60);
-                  const tempoCongeladoM = tempoCongelado % 60;
-                  const tempoAguardando = item.inicioAguardandoAprovacao ? Math.floor((Date.now() - item.inicioAguardandoAprovacao) / 1000) : 0;
-                  const aguardandoDias = Math.floor(tempoAguardando / 86400);
-                  const aguardandoHoras = Math.floor((tempoAguardando % 86400) / 3600);
-                  const aguardandoMin = Math.floor((tempoAguardando % 3600) / 60);
-                  return (
-                  <div className="mb-3 p-3 bg-purple-50 rounded-xl border border-purple-200">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-2">
-                        <ShieldCheck className="w-4 h-4 text-purple-600 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-purple-800 uppercase">Aguardando Aprovação</span>
-                          <p className="text-sm text-purple-700 font-medium">{item.motivoAprovacao}</p>
-                          <div className="flex gap-3 mt-1">
-                            <span className="text-[10px] text-purple-600 flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span className="font-bold">{tempoCongeladoH > 0 ? `${tempoCongeladoH}h ` : ""}{tempoCongeladoM}min</span> congelado
-                            </span>
-                            <span className="text-[10px] text-purple-600 flex items-center gap-1">
-                              <Timer className="w-3 h-3" />
-                              <span className="font-bold">
-                                {aguardandoDias > 0 ? `${aguardandoDias}d ` : ""}
-                                {aguardandoHoras > 0 ? `${aguardandoHoras}h ` : ""}
-                                {aguardandoMin}min
-                              </span> aguardando
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 border-purple-200 text-purple-700 hover:bg-purple-100"
-                        onClick={() => handleUpdateItemAprovacao(selectedOSManut.id, item.id, false)}
-                      >
-                        Aprovado
-                      </Button>
-                    </div>
-                  </div>
-                  );
-                })()}
-
-                {/* Info do Diagnóstico */}
-                {(item.item || item.acao) && (
-                  <div className="mb-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      {item.item && (
-                        <Badge className="bg-blue-100 text-blue-700 border-0">
-                          {item.item === "Outros" && item.descricaoCustom ? item.descricaoCustom : item.item}
-                        </Badge>
-                      )}
-                      {item.acao && (
-                        <Badge className={`border-0 ${
-                          item.acao === "ajustar" ? "bg-blue-500 text-white" :
-                          item.acao === "soldar" ? "bg-orange-500 text-white" :
-                          "bg-red-500 text-white"
-                        }`}>
-                          {item.acao === "ajustar" ? "Ajustar" : item.acao === "soldar" ? "Soldar" : "Trocar"}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Observação */}
-                {isEditingObs && (
-                  <div className="mb-3 p-3 bg-purple-50 rounded-xl">
-                    <label className="text-xs font-medium text-purple-700 mb-2 block">Observação</label>
-                    <Textarea
-                      value={manutObsText}
-                      onChange={(e) => setManutObsText(e.target.value)}
-                      placeholder="Digite a observação do técnico..."
-                      className="bg-white mb-2"
-                      rows={3}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setManutObsItemId(null); setManutObsText(""); }}
-                        className="flex-1 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => handleManutSaveObs(selectedOSManut.id, item.id)}
-                        className="flex-1 py-2 bg-purple-500 text-white rounded-lg font-bold text-sm"
-                      >
-                        Salvar Observação
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Mostrar observação existente */}
-                {item.observacao && !isEditingObs && (
-                  <div className="mb-3 p-3 bg-purple-50 rounded-xl">
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className="w-4 h-4 text-purple-600 mt-0.5" />
-                      <div>
-                        <span className="text-xs font-medium text-purple-700">Observação:</span>
-                        <p className="text-sm text-purple-800">{item.observacao}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Timer e Status */}
-                <div className="flex items-center justify-between">
-                  {item.executado ? (
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2 text-emerald-600">
-                        <CheckCircle2 className="w-5 h-5" />
-                        <span className="font-bold">Concluído</span>
-                      </div>
-                      {item.executadoPorNome && (
-                        <span className="text-xs text-slate-500 ml-7">por {item.executadoPorNome}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        if (item.aguardandoPeca) {
-                          setShowConfirmFinalizarPeca({ osId: selectedOSManut.id, itemId: item.id });
-                        } else {
-                          handleCompletarItem(selectedOSManut.id, item.id);
-                        }
-                      }}
-                      className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl font-bold text-sm flex items-center gap-2 shadow-md"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Concluir
-                    </button>
-                  )}
-                </div>
-
-                {/* Confirmação para finalizar sem peça */}
-                {showConfirmFinalizarPeca?.itemId === item.id && (
-                  <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-200">
-                    <p className="text-sm text-red-800 font-bold mb-3">A peça ainda está faltando, deseja finalizar essa O.S?</p>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        className="flex-1 h-10 text-slate-600 font-bold"
-                        onClick={() => setShowConfirmFinalizarPeca(null)}
-                      >
-                        Não
-                      </Button>
-                      <Button
-                        className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white font-bold"
-                        onClick={async () => {
-                          const obsAtual = item.observacao || "";
-                          const novaObs = `${obsAtual}${obsAtual ? " | " : ""}Peça (${item.pecaSolicitada}) não chegou.`.trim();
-
-                          // Atualiza observação e marca como não aguardando mais peça
-                          await updateOSItem(selectedOSManut.id, item.id, { 
-                            aguardandoPeca: false,
-                            observacao: novaObs 
-                          });
-
-                          setShowConfirmFinalizarPeca(null);
-                          await handleCompletarItem(selectedOSManut.id, item.id);
-                        }}
-                      >
-                        Sim, Finalizar
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
+          </div>
+        )}
 
         {/* Footer com opções de encaminhamento */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 space-y-2">
-          {selectedOSManut.itens.every(i => i.executado) ? (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
+          <div className="flex gap-2 items-center">
             <button
-              onClick={() => handleManutEncaminhar(selectedOSManut.id, "qualidade")}
-              className="w-full py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg"
+              onClick={() => setShowManutAddItemForm(true)}
+              className="flex items-center gap-1 px-4 py-3 rounded-xl font-bold text-sm text-amber-600 bg-amber-50 border border-amber-200 hover:bg-amber-100 shrink-0"
             >
-              <CheckCircle className="w-4 h-4" />
-              Encaminhar para Qualidade
+              <Plus className="w-4 h-4" />
+              Adicionar
             </button>
-          ) : (
-            <div className="text-center mb-2">
-              <p className="text-sm text-slate-500 font-medium">
-                {selectedOSManut.itens.filter(i => !i.executado).length} itens pendentes
-              </p>
-            </div>
-          )}
+            {selectedOSManut.itens.every(i => i.executado) ? (
+              <button
+                onClick={() => handleManutEncaminhar(selectedOSManut.id, "qualidade")}
+                className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-teal-600 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Encaminhar para Qualidade
+              </button>
+            ) : (
+              <div className="flex-1 text-center">
+                <p className="text-sm text-slate-500 font-medium">
+                  {selectedOSManut.itens.filter(i => !i.executado).length} item(s) pendente(s)
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -7580,8 +7001,14 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
   // QUALIDADE DETALHE - Checklist
   if (step === "qualidade_detalhe" && selectedOSQual) {
     const osAtualizada = osList.find(o => o.id === selectedOSQual.id) || selectedOSQual;
-    const todosVerificados = Object.values(qualChecklist).every(status => status !== null);
-    const temNaoConforme = Object.values(qualChecklist).some(status => status === "nao_conforme");
+
+    // Detectar segunda inspeção (retrabalho): filtrar apenas os itens retornados
+    const isRetrabalhoQual = (osAtualizada.tempoRetrabalho || 0) > 0 || osAtualizada.itens.some(i => i.observacaoQualidade);
+    const itensParaInspecionar = isRetrabalhoQual
+      ? osAtualizada.itens.filter(i => !!i.observacaoQualidade)
+      : osAtualizada.itens;
+    const todosVerificados = itensParaInspecionar.length > 0 && itensParaInspecionar.every(i => qualChecklist[i.id] !== null && qualChecklist[i.id] !== undefined);
+    const temNaoConforme = itensParaInspecionar.some(i => qualChecklist[i.id] === "nao_conforme");
     const todosConformes = todosVerificados && !temNaoConforme;
 
     return (
@@ -7633,8 +7060,18 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
         {/* Checklist Header */}
         <div className="p-4 bg-white border-b">
-          <h3 className="font-bold text-slate-800">Verificação de Itens</h3>
-          <p className="text-sm text-slate-500">Marque cada item como conforme ou não conforme</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-800">Verificação de Itens</h3>
+              <p className="text-sm text-slate-500">Marque cada item como conforme ou não conforme</p>
+            </div>
+            {isRetrabalhoQual && (
+              <div className="flex items-center gap-1.5 bg-orange-100 border border-orange-300 rounded-lg px-3 py-2 shrink-0">
+                <span className="text-orange-600 font-bold text-sm">↩</span>
+                <span className="text-orange-700 font-bold text-sm">{itensParaInspecionar.length} retrabalho(s)</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* OS Timer (Total OS) */}
@@ -7650,7 +7087,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObjBorr: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
             const hasBorrPoints = Object.keys(rodasObjBorr).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
-            const borrItems = osAtualizada.itens.filter(i => i.categoria === "borracharia");
+            const borrItems = itensParaInspecionar.filter(i => i.categoria === "borracharia");
             if (!hasBorrPoints && borrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7707,7 +7144,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasMechPoints = Object.keys(rodasObj).some(k => k.startsWith("sr") && k.includes("-p"));
-            const mechItems = osAtualizada.itens.filter(i => i.categoria === "mecanica");
+            const mechItems = itensParaInspecionar.filter(i => i.categoria === "mecanica");
             if (!hasMechPoints && mechItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7769,7 +7206,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-"));
-            const catrItems = osAtualizada.itens.filter(i => i.categoria === "catracas");
+            const catrItems = itensParaInspecionar.filter(i => i.categoria === "catracas");
             if (!hasCatracasPoints && catrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7810,7 +7247,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-"));
-            const qrItems = osAtualizada.itens.filter(i => i.categoria === "quinta_roda");
+            const qrItems = itensParaInspecionar.filter(i => i.categoria === "quinta_roda");
             if (!hasQuintaRodaPoints && qrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7855,7 +7292,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return parsed;
             })();
             const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
-            const eleItems = osAtualizada.itens.filter(i => i.categoria === "eletrica");
+            const eleItems = itensParaInspecionar.filter(i => i.categoria === "eletrica");
             if (!hasEletricaPoints && eleItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7900,7 +7337,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return parsed;
             })();
             const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
-            const estItems = osAtualizada.itens.filter(i => i.categoria === "estrutural");
+            const estItems = itensParaInspecionar.filter(i => i.categoria === "estrutural");
             if (!hasEstruturalPoints && estItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7945,7 +7382,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return parsed;
             })();
             const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-"));
-            const pneuItems = osAtualizada.itens.filter(i => i.categoria === "pneumatica");
+            const pneuItems = itensParaInspecionar.filter(i => i.categoria === "pneumatica");
             if (!hasPneumaticaPoints && pneuItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
