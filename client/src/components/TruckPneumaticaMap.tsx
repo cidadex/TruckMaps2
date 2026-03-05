@@ -27,29 +27,34 @@ export interface TruckPneumaticaMapProps {
   onCompleteClick?: (id: string) => void;
 }
 
-// ── Layout constants ──────────────────────────────────────────────
-const BW       = 120;   // body width
-const SVG_PAD  = 5;
-const SVG_W    = BW + SVG_PAD * 2;
-const BX       = SVG_PAD;  // body left edge in SVG coords
+// ── Layout constants ─────────────────────────────────────────────
+const BW       = 90;    // body width
+const SVG_PADX = 4;
+const SVG_PADY = 4;
+const SVG_W    = BW + SVG_PADX * 2;
 
-const CX       = BX + BW / 2;  // center X (65)
-const LEFT_X   = BX + 18;      // left column dot X (23)
-const RIGHT_X  = BX + BW - 18; // right column dot X (107)
+const CX       = SVG_PADX + BW / 2;   // center X of body
+const LEFT_X   = SVG_PADX + 16;       // left dot X
+const RIGHT_X  = SVG_PADX + BW - 16;  // right dot X
 
-const DRENO_Y  = 18;   // dreno row Y (center of dreno boxes)
-const ROW_START = 54;  // first rodado row Y
-const ROW_H    = 40;   // spacing per rodado
+const DRENO_ROW_H  = 32;  // height of dreno section inside body
+const DRENO_Y      = SVG_PADY + DRENO_ROW_H / 2;  // dreno dots Y
 
-function svgHeight(nRows: number) {
-  return ROW_START + nRows * ROW_H + 16;
+const ROW_H        = 28;  // height per rodado row
+const RODADO_START = SVG_PADY + DRENO_ROW_H + 6;  // Y of first rodado row
+
+function bodyHeight(nRodadoRows: number) {
+  return SVG_PADY + DRENO_ROW_H + 6 + nRodadoRows * ROW_H + SVG_PADY;
+}
+function rodadoY(rowIdx: number) {
+  return RODADO_START + rowIdx * ROW_H + ROW_H / 2;
 }
 
-function rowY(i: number) {
-  return ROW_START + i * ROW_H;
-}
+const CONN_H = 12;  // connector height between sections
 
-// ── Component ─────────────────────────────────────────────────────
+const LABEL_W = 88;
+
+// ── Component ────────────────────────────────────────────────────
 export default function TruckPneumaticaMap({
   tipoConjunto,
   rodas,
@@ -67,21 +72,35 @@ export default function TruckPneumaticaMap({
   onCompleteClick,
 }: TruckPneumaticaMapProps) {
   const showIcons = !!wheelActions || iconMode === "manutencao";
-  const nRows     = tipoConjunto === "tritrem" ? 6 : 4;
-  const totalNums = tipoConjunto === "tritrem" ? 12 : 8;
+  const ICON_W    = showIcons ? 60 : 0;
+  const colW      = LABEL_W + ICON_W;
+  const containerW = colW + SVG_W + colW;
 
-  // Left side: 1,2,3,...,nRows (top → bottom)
-  // Right side: totalNums, totalNums-1, ..., totalNums-nRows+1 (top → bottom)
-  const leftNums  = Array.from({ length: nRows }, (_, i) => i + 1);
-  const rightNums = Array.from({ length: nRows }, (_, i) => totalNums - i);
+  const isBitrem  = tipoConjunto === "bitrem";
+  // bitrem: 2 SRs × 3 rodado rows each = 12 rodados total
+  // tritrem: 3 SRs × 2 rodado rows each = 12 rodados total
+  const rowsPerSR = isBitrem ? 3 : 2;
+  const srCount   = isBitrem ? 2 : 3;
+  const totalRodados = 12;  // always 12
 
   const issueCount = Object.keys(rodas).filter(k => k.startsWith("pneu-")).length;
-  const svgH = svgHeight(nRows);
 
-  const LABEL_W = 100;
-  const ICON_W  = showIcons ? 64 : 0;
-  const colW    = LABEL_W + ICON_W;
-  const containerW = colW + SVG_W + colW;
+  // For each SR, compute its left and right rodado numbers
+  // Left: snake down  → SR1 left: 1..rowsPerSR, SR2 left: rowsPerSR+1..2*rowsPerSR, ...
+  // Right: snake down → SR1 right: totalRodados..totalRodados-rowsPerSR+1, SR2: ..., etc.
+  function srRodadoNums(srIdx: number) {
+    const leftStart  = srIdx * rowsPerSR + 1;
+    const rightStart = totalRodados - srIdx * rowsPerSR;
+    const leftNums:  number[] = [];
+    const rightNums: number[] = [];
+    for (let r = 0; r < rowsPerSR; r++) {
+      leftNums.push(leftStart + r);
+      rightNums.push(rightStart - r);
+    }
+    return { leftNums, rightNums };
+  }
+
+  const BH = bodyHeight(rowsPerSR);
 
   const getState = (id: string) => {
     const val    = rodas[id] || "";
@@ -100,7 +119,7 @@ export default function TruckPneumaticaMap({
     if (hasTroca)  return "#f97316";
     if (hasWrench) return "#3b82f6";
     if (hasStatus) return "#ef4444";
-    return "#2c5aa0"; // default BLUE
+    return "#2c5aa0";
   };
 
   const handleDot = (id: string) => {
@@ -147,33 +166,185 @@ export default function TruckPneumaticaMap({
     );
   };
 
-  // Build list of all points for label rendering
-  // Each entry: { id, cx_in_svg, cy_in_svg, label, side }
-  type PtInfo = { id: string; cx: number; cy: number; label: string; side: "left" | "right" };
+  // Render one SR section
+  const SRSection = ({ srIdx }: { srIdx: number }) => {
+    const srName = `SR${srIdx + 1}`;
+    const d1Id   = `pneu-sr${srIdx + 1}-dreno1`;
+    const d2Id   = `pneu-sr${srIdx + 1}-dreno2`;
+    const { leftNums, rightNums } = srRodadoNums(srIdx);
 
-  const dreno1: PtInfo = { id: "pneu-dreno1", cx: CX - 22, cy: DRENO_Y, label: "DRENO 1", side: "left" };
-  const dreno2: PtInfo = { id: "pneu-dreno2", cx: CX + 22, cy: DRENO_Y, label: "DRENO 2", side: "right" };
+    // Dreno dot positions inside SVG (side by side, centered)
+    const d1x = CX - 18;
+    const d2x = CX + 18;
 
-  const leftPts: PtInfo[] = leftNums.map((n, i) => ({
-    id: `pneu-rodado-${n}`,
-    cx: LEFT_X,
-    cy: rowY(i),
-    label: `POR RODADO ${n}`,
-    side: "left",
-  }));
+    return (
+      <div style={{ position: "relative", width: containerW, height: BH }}>
 
-  const rightPts: PtInfo[] = rightNums.map((n, i) => ({
-    id: `pneu-rodado-${n}`,
-    cx: RIGHT_X,
-    cy: rowY(i),
-    label: `POR RODADO ${n}`,
-    side: "right",
-  }));
+        {/* ── SVG body ── */}
+        <div style={{ position: "absolute", left: colW, top: 0 }}>
+          <svg width={SVG_W} height={BH} style={{ overflow: "visible" }}>
+
+            {/* Outer body border */}
+            <rect x={SVG_PADX} y={SVG_PADY} width={BW} height={BH - SVG_PADY * 2}
+              fill="none" stroke="#2c5aa0" strokeWidth={2} rx={3} />
+
+            {/* Dreno section divider */}
+            <line x1={SVG_PADX} y1={SVG_PADY + DRENO_ROW_H} x2={SVG_PADX + BW} y2={SVG_PADY + DRENO_ROW_H}
+              stroke="#2c5aa0" strokeWidth={1} strokeDasharray="3,2" />
+
+            {/* Dreno label */}
+            <text x={CX} y={SVG_PADY + DRENO_ROW_H - 3} textAnchor="middle"
+              fontSize={6} fill="#2c5aa0" fontWeight="bold">DRENOS</text>
+
+            {/* Dreno 1 box */}
+            <rect x={d1x - 12} y={SVG_PADY + 4} width={24} height={16}
+              fill="white" stroke="#2c5aa0" strokeWidth={1.5} rx={2} />
+            {/* Dreno 1 dot */}
+            <circle cx={d1x} cy={DRENO_Y} r={4}
+              fill={dotColor(d1Id)}
+              style={{ cursor: readOnly ? "default" : "pointer" }}
+              onClick={() => handleDot(d1Id)} />
+
+            {/* Dreno 2 box */}
+            <rect x={d2x - 12} y={SVG_PADY + 4} width={24} height={16}
+              fill="white" stroke="#2c5aa0" strokeWidth={1.5} rx={2} />
+            {/* Dreno 2 dot */}
+            <circle cx={d2x} cy={DRENO_Y} r={4}
+              fill={dotColor(d2Id)}
+              style={{ cursor: readOnly ? "default" : "pointer" }}
+              onClick={() => handleDot(d2Id)} />
+
+            {/* Left vertical line for rodados */}
+            {rowsPerSR > 1 && (
+              <line x1={LEFT_X} y1={rodadoY(0)} x2={LEFT_X} y2={rodadoY(rowsPerSR - 1)}
+                stroke="#2c5aa0" strokeWidth={1.5} />
+            )}
+
+            {/* Right vertical line for rodados */}
+            {rowsPerSR > 1 && (
+              <line x1={RIGHT_X} y1={rodadoY(0)} x2={RIGHT_X} y2={rodadoY(rowsPerSR - 1)}
+                stroke="#2c5aa0" strokeWidth={1.5} />
+            )}
+
+            {/* Rodado rows */}
+            {leftNums.map((n, i) => {
+              const rId = `pneu-rodado-${n}`;
+              const cy  = rodadoY(i);
+              return (
+                <g key={rId}>
+                  {/* Left box */}
+                  <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 8} height={20}
+                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
+                  <circle cx={LEFT_X} cy={cy} r={4}
+                    fill={dotColor(rId)}
+                    style={{ cursor: readOnly ? "default" : "pointer" }}
+                    onClick={() => handleDot(rId)} />
+                </g>
+              );
+            })}
+
+            {rightNums.map((n, i) => {
+              const rId = `pneu-rodado-${n}`;
+              const cy  = rodadoY(i);
+              return (
+                <g key={rId}>
+                  {/* Right box */}
+                  <rect x={RIGHT_X - 8} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 8} height={20}
+                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
+                  <circle cx={RIGHT_X} cy={cy} r={4}
+                    fill={dotColor(rId)}
+                    style={{ cursor: readOnly ? "default" : "pointer" }}
+                    onClick={() => handleDot(rId)} />
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+
+        {/* ── LEFT column: drenos + left rodados ── */}
+        <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
+
+          {/* Dreno 1 label row */}
+          <div style={{ position: "absolute", top: DRENO_Y - 10, right: 0 }}
+            className="flex items-center justify-end gap-1">
+            {showIcons && <ActionIcons id={d1Id} />}
+            <div className="border border-[#2c5aa0] bg-white flex items-center justify-end px-1 cursor-pointer"
+              style={{ width: LABEL_W - 4, height: 20 }}
+              onClick={() => handleDot(d1Id)}>
+              <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">DRENO 1</span>
+            </div>
+          </div>
+
+          {/* Left rodado labels */}
+          {leftNums.map((n, i) => {
+            const rId = `pneu-rodado-${n}`;
+            const cy  = rodadoY(i);
+            return (
+              <div key={rId} style={{ position: "absolute", top: cy - 10, right: 0 }}
+                className="flex items-center justify-end gap-1">
+                {showIcons && <ActionIcons id={rId} />}
+                <div className="border border-[#2c5aa0] bg-white flex items-center justify-end px-1 cursor-pointer"
+                  style={{ width: LABEL_W - 4, height: 20 }}
+                  onClick={() => handleDot(rId)}>
+                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">RODADO {n}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── RIGHT column: dreno 2 + right rodados ── */}
+        <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: BH }}>
+
+          {/* Dreno 2 label row */}
+          <div style={{ position: "absolute", top: DRENO_Y - 10, left: 0 }}
+            className="flex items-center gap-1">
+            <div className="border border-[#2c5aa0] bg-white flex items-center justify-start px-1 cursor-pointer"
+              style={{ width: LABEL_W - 4, height: 20 }}
+              onClick={() => handleDot(d2Id)}>
+              <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">DRENO 2</span>
+            </div>
+            {showIcons && <ActionIcons id={d2Id} />}
+          </div>
+
+          {/* Right rodado labels */}
+          {rightNums.map((n, i) => {
+            const rId = `pneu-rodado-${n}`;
+            const cy  = rodadoY(i);
+            return (
+              <div key={rId} style={{ position: "absolute", top: cy - 10, left: 0 }}
+                className="flex items-center gap-1">
+                <div className="border border-[#2c5aa0] bg-white flex items-center justify-start px-1 cursor-pointer"
+                  style={{ width: LABEL_W - 4, height: 20 }}
+                  onClick={() => handleDot(rId)}>
+                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">RODADO {n}</span>
+                </div>
+                {showIcons && <ActionIcons id={rId} />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Connector between SR sections
+  const Connector = () => (
+    <div style={{ position: "relative", width: containerW, height: CONN_H }}>
+      <div style={{ position: "absolute", left: colW, top: 0 }}>
+        <svg width={SVG_W} height={CONN_H}>
+          <line x1={CX} y1={0} x2={CX} y2={CONN_H} stroke="#2c5aa0" strokeWidth={2} />
+        </svg>
+      </div>
+    </div>
+  );
+
+  const srs = Array.from({ length: srCount }, (_, i) => i);
 
   return (
     <ZoomableMap>
       <div className="w-full select-none" data-testid="truck-pneumatica-map">
-        <div className="text-center mb-2">
+        <div className="text-center mb-3">
           <p className="text-sm font-semibold text-slate-700">Mapa Pneumático</p>
           {issueCount > 0 && (
             <span className="inline-block mt-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">
@@ -182,124 +353,22 @@ export default function TruckPneumaticaMap({
           )}
         </div>
 
-        <div style={{ position: "relative", width: containerW, margin: "0 auto", height: svgH }}>
-
-          {/* ── SVG diagram ── */}
-          <div style={{ position: "absolute", left: colW, top: 0 }}>
-            <svg width={SVG_W} height={svgH} style={{ overflow: "visible" }}>
-
-              {/* Central vertical red line */}
-              <line x1={CX} y1={DRENO_Y} x2={CX} y2={rowY(nRows - 1)} stroke="#c00000" strokeWidth={2} />
-
-              {/* Left vertical blue line */}
-              <line x1={LEFT_X} y1={rowY(0)} x2={LEFT_X} y2={rowY(nRows - 1)} stroke="#2c5aa0" strokeWidth={2} />
-
-              {/* Right vertical blue line */}
-              <line x1={RIGHT_X} y1={rowY(0)} x2={RIGHT_X} y2={rowY(nRows - 1)} stroke="#2c5aa0" strokeWidth={2} />
-
-              {/* Horizontal lines: left col → center */}
-              <line x1={LEFT_X} y1={rowY(0)} x2={CX} y2={rowY(0)} stroke="#2c5aa0" strokeWidth={2} />
-
-              {/* Horizontal lines: center → right col */}
-              <line x1={CX} y1={rowY(0)} x2={RIGHT_X} y2={rowY(0)} stroke="#2c5aa0" strokeWidth={2} />
-
-              {/* Dreno area: two boxes at top connected by center line */}
-              {/* Dreno line between boxes */}
-              <line x1={CX - 18} y1={DRENO_Y} x2={CX + 18} y2={DRENO_Y} stroke="#c00000" strokeWidth={2} />
-              {/* Left dreno box */}
-              <rect x={BX + 8} y={DRENO_Y - 12} width={CX - BX - 8 - 18} height={24}
-                fill="none" stroke="#2c5aa0" strokeWidth={1.5} />
-              {/* Right dreno box */}
-              <rect x={CX + 18} y={DRENO_Y - 12} width={BX + BW - (CX + 18) - 8} height={24}
-                fill="none" stroke="#2c5aa0" strokeWidth={1.5} />
-
-              {/* Dreno dots */}
-              <circle cx={dreno1.cx} cy={dreno1.cy} r={4.5} fill={dotColor(dreno1.id)}
-                onClick={() => handleDot(dreno1.id)}
-                style={{ cursor: readOnly ? "default" : "pointer" }} />
-              <circle cx={dreno2.cx} cy={dreno2.cy} r={4.5} fill={dotColor(dreno2.id)}
-                onClick={() => handleDot(dreno2.id)}
-                style={{ cursor: readOnly ? "default" : "pointer" }} />
-
-              {/* Left rodado boxes + dots + horizontal connector lines */}
-              {leftPts.map((pt, i) => (
-                <g key={pt.id}>
-                  <rect x={BX} y={pt.cy - 14} width={LEFT_X - BX + 10} height={28}
-                    fill="none" stroke="#2c5aa0" strokeWidth={1.5} />
-                  <line x1={LEFT_X + 10} y1={pt.cy} x2={LEFT_X} y2={pt.cy} stroke="#2c5aa0" strokeWidth={1} />
-                  <circle cx={pt.cx} cy={pt.cy} r={4.5} fill={dotColor(pt.id)}
-                    onClick={() => handleDot(pt.id)}
-                    style={{ cursor: readOnly ? "default" : "pointer" }} />
-                </g>
-              ))}
-
-              {/* Right rodado boxes + dots + horizontal connector lines */}
-              {rightPts.map((pt) => (
-                <g key={pt.id}>
-                  <rect x={RIGHT_X - 10} y={pt.cy - 14} width={BX + BW - RIGHT_X + 10} height={28}
-                    fill="none" stroke="#2c5aa0" strokeWidth={1.5} />
-                  <line x1={RIGHT_X - 10} y1={pt.cy} x2={RIGHT_X} y2={pt.cy} stroke="#2c5aa0" strokeWidth={1} />
-                  <circle cx={pt.cx} cy={pt.cy} r={4.5} fill={dotColor(pt.id)}
-                    onClick={() => handleDot(pt.id)}
-                    style={{ cursor: readOnly ? "default" : "pointer" }} />
-                </g>
-              ))}
-            </svg>
-          </div>
-
-          {/* ── LEFT labels: dreno1 + left rodados ── */}
-          <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: svgH }}>
-            {/* Dreno 1 */}
-            <div style={{ position: "absolute", top: DRENO_Y - 10, right: 0 }}
-              className="flex items-center justify-end gap-1">
-              {showIcons && <ActionIcons id={dreno1.id} />}
-              <div className="border border-[#2c5aa0] bg-white flex items-center justify-end cursor-pointer px-1"
-                style={{ width: LABEL_W - 4, height: 20 }}
-                onClick={() => handleDot(dreno1.id)}>
-                <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">DRENO 1</span>
+        <div style={{ width: containerW, margin: "0 auto" }}>
+          {srs.map((srIdx) => (
+            <div key={srIdx}>
+              {/* SR header */}
+              <div style={{ width: containerW }}
+                className="flex items-center justify-center mb-1">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
+                  SR{srIdx + 1}
+                </span>
               </div>
+
+              <SRSection srIdx={srIdx} />
+
+              {srIdx < srCount - 1 && <Connector />}
             </div>
-            {/* Left rodados */}
-            {leftPts.map((pt) => (
-              <div key={`L-${pt.id}`}
-                style={{ position: "absolute", top: pt.cy - 10, right: 0 }}
-                className="flex items-center justify-end gap-1">
-                {showIcons && <ActionIcons id={pt.id} />}
-                <div className="border border-[#2c5aa0] bg-white flex items-center justify-end cursor-pointer px-1"
-                  style={{ width: LABEL_W - 4, height: 20 }}
-                  onClick={() => handleDot(pt.id)}>
-                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">{pt.label}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* ── RIGHT labels: dreno2 + right rodados ── */}
-          <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: svgH }}>
-            {/* Dreno 2 */}
-            <div style={{ position: "absolute", top: DRENO_Y - 10, left: 0 }}
-              className="flex items-center gap-1">
-              <div className="border border-[#2c5aa0] bg-white flex items-center justify-start cursor-pointer px-1"
-                style={{ width: LABEL_W - 4, height: 20 }}
-                onClick={() => handleDot(dreno2.id)}>
-                <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">DRENO 2</span>
-              </div>
-              {showIcons && <ActionIcons id={dreno2.id} />}
-            </div>
-            {/* Right rodados */}
-            {rightPts.map((pt) => (
-              <div key={`R-${pt.id}`}
-                style={{ position: "absolute", top: pt.cy - 10, left: 0 }}
-                className="flex items-center gap-1">
-                <div className="border border-[#2c5aa0] bg-white flex items-center justify-start cursor-pointer px-1"
-                  style={{ width: LABEL_W - 4, height: 20 }}
-                  onClick={() => handleDot(pt.id)}>
-                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">{pt.label}</span>
-                </div>
-                {showIcons && <ActionIcons id={pt.id} />}
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
 
         {/* Issues list (abertura mode) */}
