@@ -18,6 +18,8 @@ import TruckQuintaRodaMap from "@/components/TruckQuintaRodaMap";
 import TruckEletricaMap from "@/components/TruckEletricaMap";
 import TruckEstruturalMap from "@/components/TruckEstruturalMap";
 import TruckPneumaticaMap from "@/components/TruckPneumaticaMap";
+import TruckBorrachariaMap from "@/components/TruckBorrachariaMap";
+import TruckMecanicaMap from "@/components/TruckMecanicaMap";
 import ZoomableMap from "@/components/ZoomableMap";
 
 // Helpers: IDs do mapa
@@ -108,680 +110,6 @@ interface ManutWheelStatus {
   descricao: string;
   tempo?: string;
   tipo?: string;
-}
-
-interface MechanicPointProps {
-  id: string;
-  pointNumber: number;
-  side: "esq" | "dir";
-  rodas: Record<string, string>;
-  wheelActions?: Record<string, WheelActionData>;
-  readOnly?: boolean;
-  showIcons?: boolean;
-  iconMode?: "diagnostico" | "manutencao";
-  manutStatus?: Record<string, ManutWheelStatus>;
-  onPointClick: (id: string) => void;
-  onOkClick?: (id: string) => void;
-  onTrocaClick?: (id: string) => void;
-  onWrenchClick?: (id: string) => void;
-  onInfoClick?: (id: string) => void;
-  onPackageClick?: (id: string) => void;
-  onApprovalClick?: (id: string) => void;
-  onCompleteClick?: (id: string) => void;
-}
-
-function MechanicPoint({ id, pointNumber, side, rodas, wheelActions, readOnly, showIcons, iconMode = "diagnostico", manutStatus, onPointClick, onOkClick, onTrocaClick, onWrenchClick, onInfoClick, onPackageClick, onApprovalClick, onCompleteClick }: MechanicPointProps) {
-  const hasIssue = !!rodas[id];
-  const action = wheelActions?.[id];
-  const hasTroca = action?.tipo === "troca";
-  const hasWrench = action?.tipo === "ferramenta";
-  const hasOk = action?.tipo === "ok";
-  const ms = manutStatus?.[id];
-
-  const pointButton = (
-    <button
-      data-testid={`mech-point-${id}`}
-      onClick={() => {
-        if (iconMode === "manutencao" && ms) {
-          onInfoClick?.(id);
-        } else if (!readOnly) {
-          onPointClick(id);
-        }
-      }}
-      className={`flex items-center justify-center transition-all rounded-full border-2 ${
-        ms?.executado
-          ? "bg-emerald-500 border-emerald-300 shadow-md shadow-emerald-500/30"
-          : hasOk
-            ? "bg-emerald-500 border-emerald-300 shadow-md shadow-emerald-500/30"
-            : hasTroca
-              ? "bg-orange-500 border-orange-300 shadow-md shadow-orange-500/30"
-              : hasWrench
-                ? "bg-blue-500 border-blue-300 shadow-md shadow-blue-500/30"
-                : hasIssue
-                  ? "bg-red-500 border-red-300 shadow-md shadow-red-500/30"
-                  : readOnly ? "bg-slate-700 border-slate-600" : "bg-slate-700 border-slate-600 hover:bg-slate-500 active:bg-slate-400"
-      } cursor-pointer`}
-      style={{ width: 28, height: 28 }}
-      title={`${id} (#${pointNumber})`}
-    >
-      {ms?.executado ? (
-        <Check className="w-3.5 h-3.5 text-white" />
-      ) : (
-        <span className="text-[10px] font-bold text-white">{pointNumber}</span>
-      )}
-    </button>
-  );
-
-  const okIcon = showIcons ? (
-    <button
-      onClick={() => onOkClick?.(id)}
-      className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-        hasOk ? "bg-emerald-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-emerald-100"
-      }`}
-      title="OK"
-    >
-      <Check className="w-4 h-4" />
-    </button>
-  ) : null;
-
-  const trocaIcon = showIcons ? (
-    <button
-      onClick={() => onTrocaClick?.(id)}
-      className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-        hasTroca ? "bg-orange-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-orange-100"
-      }`}
-      title="Trocar"
-    >
-      <RefreshCw className="w-4 h-4" />
-    </button>
-  ) : null;
-
-  const wrenchIcon = showIcons ? (
-    <button
-      onClick={() => onWrenchClick?.(id)}
-      className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-        hasWrench ? "bg-blue-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-blue-100"
-      }`}
-      title="Ferramenta"
-    >
-      <Wrench className="w-4 h-4" />
-    </button>
-  ) : null;
-
-  if (iconMode === "manutencao" && showIcons && ms) {
-    const packageIcon = (
-      <button
-        onClick={() => onPackageClick?.(id)}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-          ms.aguardandoPeca ? "bg-amber-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-600"
-        }`}
-        title="Aguardando Peça"
-      >
-        <Package className="w-4 h-4" />
-      </button>
-    );
-
-    const approvalIcon = (
-      <button
-        onClick={() => onApprovalClick?.(id)}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-          ms.aguardandoAprovacao ? "bg-purple-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-purple-100 hover:text-purple-600"
-        }`}
-        title="Solicitar Aprovação"
-      >
-        <ShieldCheck className="w-4 h-4" />
-      </button>
-    );
-
-    const completeIcon = (
-      <button
-        onClick={() => onCompleteClick?.(id)}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-          ms.executado ? "bg-emerald-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600"
-        }`}
-        title="Concluir"
-      >
-        <CheckCircle2 className="w-4 h-4" />
-      </button>
-    );
-
-    if (side === "esq") {
-      return (
-        <div className="flex items-center gap-1">
-          {packageIcon}{approvalIcon}{completeIcon}{pointButton}
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex items-center gap-1">
-          {pointButton}{completeIcon}{approvalIcon}{packageIcon}
-        </div>
-      );
-    }
-  }
-
-  if (side === "esq") {
-    return (
-      <div className="flex items-center gap-1">
-        {okIcon}{trocaIcon}{wrenchIcon}{pointButton}
-      </div>
-    );
-  } else {
-    return (
-      <div className="flex items-center gap-1">
-        {pointButton}{wrenchIcon}{trocaIcon}{okIcon}
-      </div>
-    );
-  }
-}
-
-interface MechanicMapProps {
-  tipo: "bitrem" | "tritrem";
-  rodas: Record<string, string>;
-  onPointClick: (id: string) => void;
-  onPointClear: (id: string) => void;
-  placas?: { cavalo: string; sr1: string; sr2?: string; sr3?: string };
-  readOnly?: boolean;
-  showIcons?: boolean;
-  iconMode?: "diagnostico" | "manutencao";
-  manutStatus?: Record<string, ManutWheelStatus>;
-  onTrocaClick?: (id: string) => void;
-  onWrenchClick?: (id: string) => void;
-  onOkClick?: (id: string) => void;
-  onInfoClick?: (id: string) => void;
-  onPackageClick?: (id: string) => void;
-  onApprovalClick?: (id: string) => void;
-  onCompleteClick?: (id: string) => void;
-  wheelActions?: Record<string, WheelActionData>;
-}
-
-function MechanicMap({ tipo, rodas, onPointClick, onPointClear, placas, readOnly, showIcons, iconMode, manutStatus, onTrocaClick, onWrenchClick, onOkClick, onInfoClick, onPackageClick, onApprovalClick, onCompleteClick, wheelActions }: MechanicMapProps) {
-  type Axle = { esq: string; dir: string; esqNum: number; dirNum: number };
-  type Section = { label: string; axles: Axle[]; placaKey: string };
-
-  const axleCount = tipo === "bitrem" ? 3 : 2;
-
-  const makeSectionAxles = (prefix: string, startNum: number): Axle[] => {
-    const axles: Axle[] = [];
-    for (let i = 1; i <= axleCount; i++) {
-      axles.push({
-        esq: `${prefix}-p${i}-esq`,
-        dir: `${prefix}-p${i}-dir`,
-        esqNum: startNum + (i - 1),
-        dirNum: startNum + axleCount + (i - 1),
-      });
-    }
-    return axles;
-  };
-
-  const pointsPerSection = axleCount * 2;
-  const sections: Section[] = [
-    { label: "SR1", axles: makeSectionAxles("sr1", 1), placaKey: "sr1" },
-    { label: "SR2", axles: makeSectionAxles("sr2", 1 + pointsPerSection), placaKey: "sr2" },
-  ];
-
-  if (tipo === "tritrem") {
-    sections.push({ label: "SR3", axles: makeSectionAxles("sr3", 1 + pointsPerSection * 2), placaKey: "sr3" });
-  }
-
-  const issueCount = Object.keys(rodas).filter(k => k.includes("-p")).length;
-
-  return (
-    <ZoomableMap>
-    <div className="w-full" data-testid="mechanic-map">
-      <div className="text-center mb-3">
-        <p className="text-sm font-semibold text-slate-700">Mapa Mecânico</p>
-        {!showIcons && <p className="text-xs text-slate-500">Toque nos pontos para indicar problemas</p>}
-        {showIcons && <p className="text-xs text-slate-500">Use os ícones laterais para registrar serviços</p>}
-        {issueCount > 0 && (
-          <span className="inline-block mt-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-            {issueCount} ponto(s) com problema
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-col items-center gap-1">
-        <div className="w-full">
-          <p className="text-[10px] font-bold text-center text-slate-500 mb-0.5 uppercase">Cavalo</p>
-          <div className="relative mx-auto" style={{ maxWidth: showIcons ? 320 : 200 }}>
-            <div
-              className="mx-auto rounded-md"
-              style={{
-                width: showIcons ? 80 : 60,
-                height: 40,
-                backgroundColor: tipo === "bitrem" ? "#22c55e" : "#ef4444",
-                borderRadius: "12px 12px 4px 4px",
-              }}
-            />
-          </div>
-        </div>
-
-        {sections.map((section, sIdx) => (
-          <div key={sIdx} className="w-full">
-            <p className="text-[10px] font-bold text-center text-slate-500 mb-0.5">
-              {section.label}
-              {placas && (placas as any)[section.placaKey] && (
-                <span className="ml-1 text-[9px] font-semibold text-blue-600">({(placas as any)[section.placaKey]})</span>
-              )}
-            </p>
-            <div className="relative mx-auto" style={{ maxWidth: showIcons ? 320 : 200 }}>
-              <div
-                className="absolute rounded-md"
-                style={{
-                  left: "50%", transform: "translateX(-50%)",
-                  width: showIcons ? 80 : 60,
-                  top: 0, bottom: 0,
-                  backgroundColor: "#94a3b8",
-                  opacity: 0.25,
-                  borderRadius: "4px",
-                }}
-              />
-              <div className="relative flex flex-col gap-1 py-2">
-                {section.axles.map((axle, aIdx) => (
-                  <div key={aIdx} className="flex items-center justify-between px-1">
-                    <MechanicPoint
-                      id={axle.esq} pointNumber={axle.esqNum} side="esq" rodas={rodas} wheelActions={wheelActions}
-                      readOnly={readOnly} showIcons={showIcons} iconMode={iconMode} manutStatus={manutStatus}
-                      onPointClick={onPointClick} onOkClick={onOkClick} onTrocaClick={onTrocaClick} onWrenchClick={onWrenchClick}
-                      onInfoClick={onInfoClick} onPackageClick={onPackageClick} onApprovalClick={onApprovalClick} onCompleteClick={onCompleteClick}
-                    />
-                    <div style={{ width: showIcons ? 40 : 30 }} />
-                    <MechanicPoint
-                      id={axle.dir} pointNumber={axle.dirNum} side="dir" rodas={rodas} wheelActions={wheelActions}
-                      readOnly={readOnly} showIcons={showIcons} iconMode={iconMode} manutStatus={manutStatus}
-                      onPointClick={onPointClick} onOkClick={onOkClick} onTrocaClick={onTrocaClick} onWrenchClick={onWrenchClick}
-                      onInfoClick={onInfoClick} onPackageClick={onPackageClick} onApprovalClick={onApprovalClick} onCompleteClick={onCompleteClick}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {Object.keys(rodas).filter(k => k.includes("-p")).length > 0 && !showIcons && (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs font-bold text-slate-600 uppercase">Pontos com problema:</p>
-          {Object.entries(rodas).filter(([id]) => id.includes("-p")).map(([id, desc]) => (
-            <div key={id} className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2 text-sm">
-              <div>
-                <span className="font-bold text-red-700">{id}</span>
-                <span className="text-slate-600 ml-2">{desc}</span>
-              </div>
-              <button onClick={() => onPointClear(id)} className="p-1 text-red-500 hover:bg-red-100 rounded">
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {wheelActions && Object.entries(wheelActions).filter(([id]) => id.includes("-p")).length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
-          {Object.entries(wheelActions).filter(([id]) => id.includes("-p")).map(([id, action]) => (
-            <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-              action.tipo === "ok" ? "bg-emerald-50 border border-emerald-200" :
-              action.tipo === "troca" ? "bg-orange-50 border border-orange-200" : "bg-blue-50 border border-blue-200"
-            }`}>
-              <div className="flex items-center gap-2">
-                {action.tipo === "ok" ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                ) : action.tipo === "troca" ? (
-                  <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
-                ) : (
-                  <Wrench className="w-3.5 h-3.5 text-blue-600" />
-                )}
-                <span className={`font-bold text-sm ${action.tipo === "ok" ? "text-emerald-700" : action.tipo === "troca" ? "text-orange-700" : "text-blue-700"}`}>{id}</span>
-                <span className="text-xs text-slate-500">{action.descricao}</span>
-              </div>
-              {action.tempo && action.tipo !== "ok" && <span className="text-xs text-slate-500">{action.tempo}min</span>}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-    </ZoomableMap>
-  );
-}
-
-interface TruckWheelMapProps {
-  tipo: "bitrem" | "tritrem";
-  rodas: Record<string, string>;
-  onWheelClick: (wheelId: string) => void;
-  onWheelClear: (wheelId: string) => void;
-  placas?: { cavalo: string; sr1: string; sr2?: string; sr3?: string };
-  readOnly?: boolean;
-  showIcons?: boolean;
-  iconMode?: "diagnostico" | "manutencao";
-  manutStatus?: Record<string, ManutWheelStatus>;
-  onTrocaClick?: (wheelId: string) => void;
-  onWrenchClick?: (wheelId: string) => void;
-  onOkClick?: (wheelId: string) => void;
-  onInfoClick?: (wheelId: string) => void;
-  onPackageClick?: (wheelId: string) => void;
-  onApprovalClick?: (wheelId: string) => void;
-  onCompleteClick?: (wheelId: string) => void;
-  wheelActions?: Record<string, WheelActionData>;
-}
-
-function TruckWheelMap({ tipo, rodas, onWheelClick, onWheelClear, placas, readOnly, showIcons, iconMode = "diagnostico", manutStatus, onTrocaClick, onWrenchClick, onOkClick, onInfoClick, onPackageClick, onApprovalClick, onCompleteClick, wheelActions }: TruckWheelMapProps) {
-  type Axle = { esq: string; dir: string; yPct: number };
-  type Section = { label: string; color: string; axles: Axle[]; placaKey?: string; isCab?: boolean; estepeId?: string };
-
-  const cabAxles: Axle[] = [
-    { esq: "cavalo-e1-esq", dir: "cavalo-e1-dir", yPct: 30 },
-    { esq: "cavalo-e2-esq", dir: "cavalo-e2-dir", yPct: 75 },
-  ];
-
-  const makeTrailerAxles = (prefix: string): Axle[] => {
-    const axleCount = tipo === "bitrem" ? 3 : 2;
-    const axles: Axle[] = [];
-    for (let i = 1; i <= axleCount; i++) {
-      const yPct = axleCount === 3 
-        ? (i === 1 ? 20 : i === 2 ? 50 : 80)
-        : (i === 1 ? 30 : 70);
-      axles.push({ esq: `${prefix}-e${i}-esq`, dir: `${prefix}-e${i}-dir`, yPct });
-    }
-    return axles;
-  };
-
-  const sections: Section[] = [
-    { label: "SR1", color: "#94a3b8", axles: makeTrailerAxles("sr1"), placaKey: "sr1", estepeId: "sr1-estepe" },
-    { label: "SR2", color: "#94a3b8", axles: makeTrailerAxles("sr2"), placaKey: "sr2" },
-  ];
-
-  if (tipo === "tritrem") {
-    sections.push({ label: "SR3", color: "#94a3b8", axles: makeTrailerAxles("sr3"), placaKey: "sr3" });
-  }
-
-  const cabSection: Section = { label: "Cavalo", color: tipo === "bitrem" ? "#22c55e" : "#ef4444", axles: cabAxles, isCab: true };
-
-  const issueCount = Object.keys(rodas).filter(k => {
-    const isWheel = k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe");
-    if (!isWheel) return false;
-    const action = wheelActions?.[k];
-    // Se não tem action (veio da abertura e ainda não foi diagnosticado) -> conta como problema
-    if (!action) return true;
-    // Se tem action, só conta se NÃO for "ok"
-    const isOk = action.tipo === "ok";
-    return !isOk;
-  }).length;
-
-  const renderWheel = (wheelId: string, side: "esq" | "dir") => {
-    const hasIssue = !!rodas[wheelId];
-    const action = wheelActions?.[wheelId];
-    const hasTroca = action?.tipo === "troca";
-    const hasWrench = action?.tipo === "ferramenta";
-    const hasOk = action?.tipo === "ok";
-    const ms = manutStatus?.[wheelId];
-
-    const wheelButton = (
-      <button
-        data-testid={`wheel-${wheelId}`}
-        onClick={() => {
-          if (iconMode === "manutencao" && ms) {
-            onInfoClick?.(wheelId);
-          } else if (!readOnly) {
-            onWheelClick(wheelId);
-          }
-        }}
-        className={`flex items-center justify-center transition-all rounded ${
-          ms?.executado
-            ? "bg-emerald-500 ring-2 ring-emerald-300 shadow-md shadow-emerald-500/30"
-            : hasOk
-              ? "bg-emerald-500 ring-2 ring-emerald-300 shadow-md shadow-emerald-500/30"
-              : hasTroca
-                ? "bg-orange-500 ring-2 ring-orange-300 shadow-md shadow-orange-500/30"
-                : hasWrench
-                  ? "bg-blue-500 ring-2 ring-blue-300 shadow-md shadow-blue-500/30"
-                  : hasIssue
-                    ? "bg-red-500 ring-2 ring-red-300 shadow-md shadow-red-500/30"
-                    : "bg-slate-800 hover:bg-slate-600 active:bg-slate-500"
-        } cursor-pointer`}
-        style={{ width: 22, height: 34 }}
-        title={wheelId}
-      />
-    );
-
-    const okIcon = showIcons ? (
-      <button
-        data-testid={`ok-${wheelId}`}
-        onClick={() => onOkClick?.(wheelId)}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-          hasOk ? "bg-emerald-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600"
-        }`}
-        title="OK - Sem problema"
-      >
-        <Check className="w-4 h-4" />
-      </button>
-    ) : null;
-
-    const trocaIcon = showIcons ? (
-      <button
-        data-testid={`troca-${wheelId}`}
-        onClick={() => onTrocaClick?.(wheelId)}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-          hasTroca ? "bg-orange-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-orange-100 hover:text-orange-600"
-        }`}
-        title="Troca de pneu"
-      >
-        <RefreshCw className="w-4 h-4" />
-      </button>
-    ) : null;
-
-    const wrenchIcon = showIcons ? (
-      <button
-        data-testid={`wrench-${wheelId}`}
-        onClick={() => onWrenchClick?.(wheelId)}
-        className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-          hasWrench ? "bg-blue-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600"
-        }`}
-        title="Ferramenta / Serviço"
-      >
-        <Wrench className="w-4 h-4" />
-      </button>
-    ) : null;
-
-    if (iconMode === "manutencao" && showIcons && ms) {
-      const packageIcon = (
-        <button
-          onClick={() => onPackageClick?.(wheelId)}
-          className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-            ms.aguardandoPeca ? "bg-amber-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-amber-100 hover:text-amber-600"
-          }`}
-          title="Aguardando Peça"
-        >
-          <Package className="w-4 h-4" />
-        </button>
-      );
-
-      const approvalIcon = (
-        <button
-          onClick={() => onApprovalClick?.(wheelId)}
-          className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-            ms.aguardandoAprovacao ? "bg-purple-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-purple-100 hover:text-purple-600"
-          }`}
-          title="Solicitar Aprovação"
-        >
-          <ShieldCheck className="w-4 h-4" />
-        </button>
-      );
-
-      const completeIcon = (
-        <button
-          onClick={() => onCompleteClick?.(wheelId)}
-          className={`w-7 h-7 rounded-md flex items-center justify-center transition-colors ${
-            ms.executado ? "bg-emerald-500 text-white shadow-sm" : "bg-slate-200 text-slate-500 hover:bg-emerald-100 hover:text-emerald-600"
-          }`}
-          title="Concluir"
-        >
-          <CheckCircle2 className="w-4 h-4" />
-        </button>
-      );
-
-      if (side === "esq") {
-        return (
-          <div className="flex items-center gap-1">
-            {packageIcon}
-            {approvalIcon}
-            {completeIcon}
-            {wheelButton}
-          </div>
-        );
-      } else {
-        return (
-          <div className="flex items-center gap-1">
-            {wheelButton}
-            {completeIcon}
-            {approvalIcon}
-            {packageIcon}
-          </div>
-        );
-      }
-    }
-
-    if (side === "esq") {
-      return (
-        <div className="flex items-center gap-1">
-          {okIcon}
-          {trocaIcon}
-          {wrenchIcon}
-          {wheelButton}
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex items-center gap-1">
-          {wheelButton}
-          {wrenchIcon}
-          {trocaIcon}
-          {okIcon}
-        </div>
-      );
-    }
-  };
-
-  return (
-    <ZoomableMap>
-    <div className="w-full" data-testid="truck-wheel-map">
-      <div className="text-center mb-3">
-        <p className="text-sm font-semibold text-slate-700">Mapa de Rodas</p>
-        {!showIcons && <p className="text-xs text-slate-500">Toque nas rodas para indicar problemas</p>}
-        {showIcons && <p className="text-xs text-slate-500">Use os ícones laterais para registrar serviços</p>}
-        {issueCount > 0 && (
-          <Badge className="mt-1 bg-red-100 text-red-700 border-0">{issueCount} roda(s) com problema</Badge>
-        )}
-      </div>
-
-      <div className="flex flex-col items-center gap-1">
-        {/* Render Cavalo without wheels */}
-        <div className="w-full">
-          <p className="text-[10px] font-bold text-center text-slate-500 mb-0.5 uppercase">
-            {cabSection.label}
-          </p>
-          <div className="relative mx-auto" style={{ maxWidth: showIcons ? 320 : 200 }}>
-            <div
-              className="mx-auto rounded-md"
-              style={{
-                width: showIcons ? 80 : 60,
-                height: 40,
-                backgroundColor: cabSection.color,
-                borderRadius: "12px 12px 4px 4px",
-              }}
-            />
-          </div>
-        </div>
-
-        {sections.map((section, sIdx) => (
-          <div key={sIdx} className="w-full">
-            <p className="text-[10px] font-bold text-center text-slate-500 mb-0.5">
-              {section.label}
-              {placas && section.placaKey && (placas as any)[section.placaKey] && (
-                <span className="ml-1 text-[9px] font-semibold text-blue-600">
-                  ({(placas as any)[section.placaKey]})
-                </span>
-              )}
-            </p>
-            <div className="relative mx-auto" style={{ maxWidth: showIcons ? 320 : 200 }}>
-              <div
-                className="absolute rounded-md"
-                style={{
-                  left: "50%", transform: "translateX(-50%)",
-                  width: showIcons ? 80 : 60,
-                  top: 0, bottom: 0,
-                  backgroundColor: section.color,
-                  opacity: section.isCab ? 1 : 0.25,
-                  borderRadius: section.isCab ? "12px 12px 4px 4px" : "4px",
-                }}
-              />
-              <div className="relative flex flex-col gap-1 py-2">
-                {section.estepeId && (
-                  <div className="flex items-center justify-center px-1 mb-1">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[8px] font-bold text-slate-500 uppercase">Estepe</span>
-                      {renderWheel(section.estepeId, "esq")}
-                    </div>
-                  </div>
-                )}
-                {section.axles.map((axle, aIdx) => (
-                  <div key={aIdx} className="flex items-center justify-between px-1">
-                    {renderWheel(axle.esq, "esq")}
-                    <div style={{ width: showIcons ? 40 : 30 }} />
-                    {renderWheel(axle.dir, "dir")}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {Object.entries(rodas).filter(([id]) => isWheelId(id)).length > 0 && !showIcons && (
-        <div className="mt-4 space-y-2">
-          <p className="text-xs font-bold text-slate-600 uppercase">Rodas com problema:</p>
-          {Object.entries(rodas).filter(([id]) => isWheelId(id)).map(([id, desc]) => (
-            <div key={id} className="flex items-center justify-between bg-red-50 rounded-lg px-3 py-2 text-sm">
-              <div>
-                <span className="font-bold text-red-700">{id}</span>
-                <span className="text-slate-600 ml-2">{desc}</span>
-              </div>
-              <button onClick={() => onWheelClear(id)} className="p-1 text-red-500 hover:bg-red-100 rounded">
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {wheelActions && Object.entries(wheelActions).filter(([id]) => isWheelId(id)).length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
-          {Object.entries(wheelActions).filter(([id]) => isWheelId(id)).map(([id, action]) => (
-            <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
-              action.tipo === "ok" ? "bg-emerald-50 border border-emerald-200" :
-              action.tipo === "troca" ? "bg-orange-50 border border-orange-200" : "bg-blue-50 border border-blue-200"
-            }`}>
-              <div className="flex items-center gap-2">
-                {action.tipo === "ok" ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                ) : action.tipo === "troca" ? (
-                  <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
-                ) : (
-                  <Wrench className="w-3.5 h-3.5 text-blue-600" />
-                )}
-                <span className={`font-bold text-sm ${action.tipo === "ok" ? "text-emerald-700" : action.tipo === "troca" ? "text-orange-700" : "text-blue-700"}`}>{id}</span>
-                <span className="text-xs text-slate-500">{action.descricao}</span>
-              </div>
-              {action.tempo && action.tipo !== "ok" && <span className="text-xs text-slate-500">{action.tempo}min</span>}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-    </ZoomableMap>
-  );
 }
 
 const ACOES_MANUTENCAO = [
@@ -3385,7 +2713,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               <>
                 {diagHasBorracharia && hasBorrachariaRodas && selectedOS.tipoConjunto && (
                   <div className="mt-3 pt-3 border-t border-slate-100">
-                    <TruckWheelMap
+                    <TruckBorrachariaMap
                       tipo={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
                       rodas={rodasData}
                       placas={diagPlacas}
@@ -3451,7 +2779,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
                 {diagHasMecanica && hasMecanicaRodas && selectedOS.tipoConjunto && (
                   <div className="mt-3 pt-3 border-t border-slate-100">
-                    <MechanicMap
+                    <TruckMecanicaMap
                       tipo={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
                       rodas={rodasData}
                       placas={diagPlacas}
@@ -3884,7 +3212,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                           <p className="text-xs text-slate-500">Use os ícones laterais para registrar serviços</p>
                           <div className="border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
                             {diagNovoItemCat === "borracharia" && (
-                              <TruckWheelMap
+                              <TruckBorrachariaMap
                                 tipo={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
                                 rodas={addMapRodasData}
                                 placas={addMapPlacas}
@@ -3947,7 +3275,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                               />
                             )}
                             {diagNovoItemCat === "mecanica" && (
-                              <MechanicMap
+                              <TruckMecanicaMap
                                 tipo={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
                                 rodas={addMapRodasData}
                                 placas={addMapPlacas}
@@ -5595,7 +4923,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         <div className="w-2 h-2 rounded-full bg-orange-500"></div>
                         Mapa de Borracharia
                       </h4>
-                      <TruckWheelMap
+                      <TruckBorrachariaMap
                         tipo={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
                         rodas={rodasObj}
                         placas={placasObj}
@@ -5662,7 +4990,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         <div className="w-2 h-2 rounded-full bg-blue-500"></div>
                         Mapa Mecânico
                       </h4>
-                      <MechanicMap
+                      <TruckMecanicaMap
                         tipo={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
                         rodas={rodasObj}
                         placas={placasObj}
@@ -7645,7 +6973,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         <div className="flex-1 flex flex-col p-6 overflow-y-auto">
           {isBorracharia && tipoConjunto && (
             <div className="mb-6 border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
-              <TruckWheelMap
+              <TruckBorrachariaMap
                 tipo={tipoConjunto as "bitrem" | "tritrem"}
                 rodas={rodasSelecionadas}
                 placas={{
@@ -7670,7 +6998,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
           {isMecanica && tipoConjunto && (
             <div className="mb-6 border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
-              <MechanicMap
+              <TruckMecanicaMap
                 tipo={tipoConjunto as "bitrem" | "tritrem"}
                 rodas={rodasSelecionadas}
                 placas={{
@@ -8278,7 +7606,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
-                  <MechanicMap
+                  <TruckMecanicaMap
                     tipo={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
                     rodas={rodasObj}
                     placas={{

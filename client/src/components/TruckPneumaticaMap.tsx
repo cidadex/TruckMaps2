@@ -28,20 +28,20 @@ export interface TruckPneumaticaMapProps {
 }
 
 // ── Layout constants ─────────────────────────────────────────────
-const BW        = 90;
-const SVG_PADX  = 4;
-const SVG_PADY  = 4;
-const SVG_W     = BW + SVG_PADX * 2;
+const BW       = 90;    // body width
+const SVG_PADX = 4;
+const SVG_PADY = 4;
+const SVG_W    = BW + SVG_PADX * 2;
 
-const CX        = SVG_PADX + BW / 2;
-const LEFT_X    = SVG_PADX + 16;
-const RIGHT_X   = SVG_PADX + BW - 16;
+const CX       = SVG_PADX + BW / 2;   // center X of body
+const LEFT_X   = SVG_PADX + 16;       // left dot X
+const RIGHT_X  = SVG_PADX + BW - 16;  // right dot X
 
-const DRENO_ROW_H  = 32;
-const DRENO_Y      = SVG_PADY + DRENO_ROW_H / 2;
+const DRENO_ROW_H  = 32;  // height of dreno section inside body
+const DRENO_Y      = SVG_PADY + DRENO_ROW_H / 2;  // dreno dots Y
 
-const ROW_H        = 28;
-const RODADO_START = SVG_PADY + DRENO_ROW_H + 6;
+const ROW_H        = 28;  // height per rodado row
+const RODADO_START = SVG_PADY + DRENO_ROW_H + 6;  // Y of first rodado row
 
 function bodyHeight(nRodadoRows: number) {
   return SVG_PADY + DRENO_ROW_H + 6 + nRodadoRows * ROW_H + SVG_PADY;
@@ -50,8 +50,9 @@ function rodadoY(rowIdx: number) {
   return RODADO_START + rowIdx * ROW_H + ROW_H / 2;
 }
 
-const CONN_H  = 12;
-const ICON_COL = 52;  // icon-only column, no label text
+const CONN_H = 12;  // connector height between sections
+
+const LABEL_W = 88;
 
 // ── Component ────────────────────────────────────────────────────
 export default function TruckPneumaticaMap({
@@ -71,17 +72,23 @@ export default function TruckPneumaticaMap({
   onApprovalClick,
   onCompleteClick,
 }: TruckPneumaticaMapProps) {
-  const showIcons  = !!wheelActions || iconMode === "manutencao";
-  const colW       = showIcons ? ICON_COL : 0;
+  const showIcons = !!wheelActions || iconMode === "manutencao";
+  const ICON_W    = showIcons ? 60 : 0;
+  const colW      = LABEL_W + ICON_W;
   const containerW = colW + SVG_W + colW;
 
-  const isBitrem   = tipoConjunto === "bitrem";
-  const rowsPerSR  = isBitrem ? 3 : 2;
-  const srCount    = isBitrem ? 2 : 3;
-  const totalRodados = 12;
+  const isBitrem  = tipoConjunto === "bitrem";
+  // bitrem: 2 SRs × 3 rodado rows each = 12 rodados total
+  // tritrem: 3 SRs × 2 rodado rows each = 12 rodados total
+  const rowsPerSR = isBitrem ? 3 : 2;
+  const srCount   = isBitrem ? 2 : 3;
+  const totalRodados = 12;  // always 12
 
   const issueCount = Object.keys(rodas).filter(k => k.startsWith("pneu-")).length;
 
+  // For each SR, compute its left and right rodado numbers
+  // Left: snake down  → SR1 left: 1..rowsPerSR, SR2 left: rowsPerSR+1..2*rowsPerSR, ...
+  // Right: snake down → SR1 right: totalRodados..totalRodados-rowsPerSR+1, SR2: ..., etc.
   function srRodadoNums(srIdx: number) {
     const leftStart  = srIdx * rowsPerSR + 1;
     const rightStart = totalRodados - srIdx * rowsPerSR;
@@ -121,50 +128,52 @@ export default function TruckPneumaticaMap({
     else if (!readOnly) { onPointClick(id); }
   };
 
-  const ActionIcons = ({ id, side }: { id: string; side: "left" | "right" }) => {
+  const ActionIcons = ({ id }: { id: string }) => {
     if (!showIcons) return null;
     const { hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (iconMode === "manutencao" && ms) {
       return (
-        <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <button type="button" onClick={() => onPackageClick?.(id)}
-            className={`w-4 h-4 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-            <Package className="w-2.5 h-2.5" />
+            className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+            <Package className="w-3 h-3" />
           </button>
           <button type="button" onClick={() => onApprovalClick?.(id)}
-            className={`w-4 h-4 rounded flex items-center justify-center ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-            <ShieldCheck className="w-2.5 h-2.5" />
+            className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+            <ShieldCheck className="w-3 h-3" />
           </button>
           <button type="button" onClick={() => onCompleteClick?.(id)}
-            className={`w-4 h-4 rounded flex items-center justify-center ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-            <CheckCircle2 className="w-2.5 h-2.5" />
+            className={`w-5 h-5 rounded flex items-center justify-center ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+            <CheckCircle2 className="w-3 h-3" />
           </button>
         </div>
       );
     }
     return (
-      <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
+      <div className="flex items-center gap-0.5 flex-shrink-0">
         <button type="button" onClick={() => onOkClick?.(id)}
-          className={`w-4 h-4 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-          <Check className="w-2.5 h-2.5" />
+          className={`w-5 h-5 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          <Check className="w-3 h-3" />
         </button>
         <button type="button" onClick={() => onTrocaClick?.(id)}
-          className={`w-4 h-4 rounded flex items-center justify-center ${hasTroca ? "bg-orange-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-          <RefreshCw className="w-2.5 h-2.5" />
+          className={`w-5 h-5 rounded flex items-center justify-center ${hasTroca ? "bg-orange-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          <RefreshCw className="w-3 h-3" />
         </button>
         <button type="button" onClick={() => onWrenchClick?.(id)}
-          className={`w-4 h-4 rounded flex items-center justify-center ${hasWrench ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-          <Wrench className="w-2.5 h-2.5" />
+          className={`w-5 h-5 rounded flex items-center justify-center ${hasWrench ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          <Wrench className="w-3 h-3" />
         </button>
       </div>
     );
   };
 
+  // Render one SR section
   const SRSection = ({ srIdx }: { srIdx: number }) => {
-    const d1Id = `pneu-sr${srIdx + 1}-dreno1`;
-    const d2Id = `pneu-sr${srIdx + 1}-dreno2`;
+    const d1Id   = `pneu-sr${srIdx + 1}-dreno1`;
+    const d2Id   = `pneu-sr${srIdx + 1}-dreno2`;
     const { leftNums, rightNums } = srRodadoNums(srIdx);
 
+    // Dreno dot positions inside SVG (side by side, centered)
     const d1x = CX - 18;
     const d2x = CX + 18;
 
@@ -175,52 +184,55 @@ export default function TruckPneumaticaMap({
         <div style={{ position: "absolute", left: colW, top: 0 }}>
           <svg width={SVG_W} height={BH} style={{ overflow: "visible" }}>
 
-            {/* Outer border */}
+            {/* Outer body border */}
             <rect x={SVG_PADX} y={SVG_PADY} width={BW} height={BH - SVG_PADY * 2}
               fill="none" stroke="#2c5aa0" strokeWidth={2} rx={3} />
 
             {/* Dreno section divider */}
-            <line x1={SVG_PADX} y1={SVG_PADY + DRENO_ROW_H}
-              x2={SVG_PADX + BW} y2={SVG_PADY + DRENO_ROW_H}
+            <line x1={SVG_PADX} y1={SVG_PADY + DRENO_ROW_H} x2={SVG_PADX + BW} y2={SVG_PADY + DRENO_ROW_H}
               stroke="#2c5aa0" strokeWidth={1} strokeDasharray="3,2" />
 
-            {/* "DRENOS" micro-label */}
+            {/* Dreno label */}
             <text x={CX} y={SVG_PADY + DRENO_ROW_H - 3} textAnchor="middle"
               fontSize={6} fill="#2c5aa0" fontWeight="bold">DRENOS</text>
 
-            {/* Dreno 1 */}
+            {/* Dreno 1 box */}
             <rect x={d1x - 12} y={SVG_PADY + 4} width={24} height={16}
               fill="white" stroke="#2c5aa0" strokeWidth={1.5} rx={2} />
+            {/* Dreno 1 dot */}
             <circle cx={d1x} cy={DRENO_Y} r={4}
               fill={dotColor(d1Id)}
               style={{ cursor: readOnly ? "default" : "pointer" }}
               onClick={() => handleDot(d1Id)} />
 
-            {/* Dreno 2 */}
+            {/* Dreno 2 box */}
             <rect x={d2x - 12} y={SVG_PADY + 4} width={24} height={16}
               fill="white" stroke="#2c5aa0" strokeWidth={1.5} rx={2} />
+            {/* Dreno 2 dot */}
             <circle cx={d2x} cy={DRENO_Y} r={4}
               fill={dotColor(d2Id)}
               style={{ cursor: readOnly ? "default" : "pointer" }}
               onClick={() => handleDot(d2Id)} />
 
-            {/* Left vertical rail */}
+            {/* Left vertical line for rodados */}
             {rowsPerSR > 1 && (
               <line x1={LEFT_X} y1={rodadoY(0)} x2={LEFT_X} y2={rodadoY(rowsPerSR - 1)}
                 stroke="#2c5aa0" strokeWidth={1.5} />
             )}
-            {/* Right vertical rail */}
+
+            {/* Right vertical line for rodados */}
             {rowsPerSR > 1 && (
               <line x1={RIGHT_X} y1={rodadoY(0)} x2={RIGHT_X} y2={rodadoY(rowsPerSR - 1)}
                 stroke="#2c5aa0" strokeWidth={1.5} />
             )}
 
-            {/* Left rodado rows */}
+            {/* Rodado rows */}
             {leftNums.map((n, i) => {
               const rId = `pneu-rodado-${n}`;
               const cy  = rodadoY(i);
               return (
                 <g key={rId}>
+                  {/* Left box */}
                   <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 8} height={20}
                     fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
                   <circle cx={LEFT_X} cy={cy} r={4}
@@ -231,12 +243,12 @@ export default function TruckPneumaticaMap({
               );
             })}
 
-            {/* Right rodado rows */}
             {rightNums.map((n, i) => {
               const rId = `pneu-rodado-${n}`;
               const cy  = rodadoY(i);
               return (
                 <g key={rId}>
+                  {/* Right box */}
                   <rect x={RIGHT_X - 8} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 8} height={20}
                     fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
                   <circle cx={RIGHT_X} cy={cy} r={4}
@@ -249,47 +261,74 @@ export default function TruckPneumaticaMap({
           </svg>
         </div>
 
-        {/* ── LEFT icon column (dreno1 + left rodados) ── */}
-        {showIcons && (
-          <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
-            <div style={{ position: "absolute", top: DRENO_Y - 10, right: 0 }}
-              className="flex items-center justify-end">
-              <ActionIcons id={d1Id} side="left" />
-            </div>
-            {leftNums.map((n, i) => {
-              const rId = `pneu-rodado-${n}`;
-              return (
-                <div key={rId} style={{ position: "absolute", top: rodadoY(i) - 10, right: 0 }}
-                  className="flex items-center justify-end">
-                  <ActionIcons id={rId} side="left" />
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* ── LEFT column: drenos + left rodados ── */}
+        <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
 
-        {/* ── RIGHT icon column (dreno2 + right rodados) ── */}
-        {showIcons && (
-          <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: BH }}>
-            <div style={{ position: "absolute", top: DRENO_Y - 10, left: 0 }}
-              className="flex items-center justify-start">
-              <ActionIcons id={d2Id} side="right" />
+          {/* Dreno 1 label row */}
+          <div style={{ position: "absolute", top: DRENO_Y - 10, right: 0 }}
+            className="flex items-center justify-end gap-1">
+            {showIcons && <ActionIcons id={d1Id} />}
+            <div className="border border-[#2c5aa0] bg-white flex items-center justify-end px-1 cursor-pointer"
+              style={{ width: LABEL_W - 4, height: 20 }}
+              onClick={() => handleDot(d1Id)}>
+              <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">DRENO 1</span>
             </div>
-            {rightNums.map((n, i) => {
-              const rId = `pneu-rodado-${n}`;
-              return (
-                <div key={rId} style={{ position: "absolute", top: rodadoY(i) - 10, left: 0 }}
-                  className="flex items-center justify-start">
-                  <ActionIcons id={rId} side="right" />
-                </div>
-              );
-            })}
           </div>
-        )}
+
+          {/* Left rodado labels */}
+          {leftNums.map((n, i) => {
+            const rId = `pneu-rodado-${n}`;
+            const cy  = rodadoY(i);
+            return (
+              <div key={rId} style={{ position: "absolute", top: cy - 10, right: 0 }}
+                className="flex items-center justify-end gap-1">
+                {showIcons && <ActionIcons id={rId} />}
+                <div className="border border-[#2c5aa0] bg-white flex items-center justify-end px-1 cursor-pointer"
+                  style={{ width: LABEL_W - 4, height: 20 }}
+                  onClick={() => handleDot(rId)}>
+                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">RODADO {n}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── RIGHT column: dreno 2 + right rodados ── */}
+        <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: BH }}>
+
+          {/* Dreno 2 label row */}
+          <div style={{ position: "absolute", top: DRENO_Y - 10, left: 0 }}
+            className="flex items-center gap-1">
+            <div className="border border-[#2c5aa0] bg-white flex items-center justify-start px-1 cursor-pointer"
+              style={{ width: LABEL_W - 4, height: 20 }}
+              onClick={() => handleDot(d2Id)}>
+              <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">DRENO 2</span>
+            </div>
+            {showIcons && <ActionIcons id={d2Id} />}
+          </div>
+
+          {/* Right rodado labels */}
+          {rightNums.map((n, i) => {
+            const rId = `pneu-rodado-${n}`;
+            const cy  = rodadoY(i);
+            return (
+              <div key={rId} style={{ position: "absolute", top: cy - 10, left: 0 }}
+                className="flex items-center gap-1">
+                <div className="border border-[#2c5aa0] bg-white flex items-center justify-start px-1 cursor-pointer"
+                  style={{ width: LABEL_W - 4, height: 20 }}
+                  onClick={() => handleDot(rId)}>
+                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">RODADO {n}</span>
+                </div>
+                {showIcons && <ActionIcons id={rId} />}
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   };
 
+  // Connector between SR sections
   const Connector = () => (
     <div style={{ position: "relative", width: containerW, height: CONN_H }}>
       <div style={{ position: "absolute", left: colW, top: 0 }}>
@@ -317,7 +356,9 @@ export default function TruckPneumaticaMap({
         <div style={{ width: containerW, margin: "0 auto" }}>
           {srs.map((srIdx) => (
             <div key={srIdx}>
-              <div style={{ width: containerW }} className="flex items-center justify-center mb-1">
+              {/* SR header */}
+              <div style={{ width: containerW }}
+                className="flex items-center justify-center mb-1">
                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
                   SR{srIdx + 1}
                   {placas && (placas as any)[`sr${srIdx + 1}`] && (
@@ -327,13 +368,15 @@ export default function TruckPneumaticaMap({
                   )}
                 </span>
               </div>
+
               <SRSection srIdx={srIdx} />
+
               {srIdx < srCount - 1 && <Connector />}
             </div>
           ))}
         </div>
 
-        {/* Issues list */}
+        {/* Issues list (abertura mode) */}
         {!showIcons && issueCount > 0 && (
           <div className="mt-4 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Pontos com problema:</p>
