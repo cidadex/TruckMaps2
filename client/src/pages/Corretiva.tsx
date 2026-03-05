@@ -15,15 +15,21 @@ import { jsPDF } from "jspdf";
 
 import TruckCatracasMap from "@/components/TruckCatracasMap";
 import TruckQuintaRodaMap from "@/components/TruckQuintaRodaMap";
+import TruckEletricaMap from "@/components/TruckEletricaMap";
+import TruckEstruturalMap from "@/components/TruckEstruturalMap";
 import ZoomableMap from "@/components/ZoomableMap";
 
 // Helpers: IDs do mapa
 const isWheelId = (id: string) => /-e\d+-/i.test(id) || id.endsWith("-estepe");
 const isQuintaRodaId = (id: string) => id.startsWith("qr-");
+const isEletricaId = (id: string) => id.startsWith("ele-");
+const isEstruturalId = (id: string) => id.startsWith("est-");
 const getMapLabel = (id: string) => {
   if (isWheelId(id)) return "Roda";
   if (id.startsWith("catr-")) return "Catraca";
   if (isQuintaRodaId(id)) return "5ª Roda";
+  if (isEletricaId(id)) return "Elétrica";
+  if (isEstruturalId(id)) return "Estrutural";
   return "Ponto";
 };
 
@@ -1397,46 +1403,79 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
       if (!os) return;
 
       // Integrar ações do mapa de rodas aos itens da OS antes de liberar
-      // Importante: `os.rodas` hoje armazena também pontos de outros mapas (mecânica/catracas/etc).
-      // Aqui, só podemos gerar itens automáticos de BORRACHARIA para IDs de roda ("-eX-").
       if (os.rodas) {
         try {
           const rodasObj = JSON.parse(os.rodas);
           for (const [wheelId, desc] of Object.entries(rodasObj)) {
-            if (!isWheelId(wheelId)) continue;
+            if (typeof desc !== "string" || desc.startsWith("[OK]")) continue;
+            const itemExiste = os.itens.some(i => i.descricao.includes(wheelId));
+            if (itemExiste) continue;
 
-            if (typeof desc === "string" && !desc.startsWith("[OK]")) {
-              // Verifica se já existe um item para essa roda
-              const itemExiste = os.itens.some(i => i.descricao.includes(wheelId));
-              if (!itemExiste) {
-                let categoria = "borracharia";
-                let acao = "trocar";
-                let tempo = 45;
-                let descricaoFinal = desc;
+            let categoria = "";
+            let itemLabel = "";
+            let acao = "trocar";
+            let tempo = 45;
+            let descricaoFinal = String(desc);
 
-                if (desc.startsWith("[TROCA]")) {
-                  acao = "trocar";
-                  const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
-                  if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 45;
-                  descricaoFinal = `Troca de pneu - Roda ${wheelId}`;
-                } else if (desc.startsWith("[FERRAMENTA]")) {
-                  acao = "ajustar";
-                  const descMatch = desc.match(/\[FERRAMENTA\] ([^\|]+)/);
-                  const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
-                  if (descMatch) descricaoFinal = `${descMatch[1].trim()} - Roda ${wheelId}`;
-                  if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
-                }
-
-                await createOSItem(osId, {
-                  categoria,
-                  item: "Roda",
-                  descricao: descricaoFinal,
-                  acao,
-                  tempoEstimado: tempo,
-                  inicioTimer: Date.now()
-                });
+            if (isWheelId(wheelId)) {
+              categoria = "borracharia";
+              itemLabel = "Roda";
+              if (desc.startsWith("[TROCA]")) {
+                acao = "trocar";
+                const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
+                if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 45;
+                descricaoFinal = `Troca de pneu - Roda ${wheelId}`;
+              } else if (desc.startsWith("[FERRAMENTA]")) {
+                acao = "ajustar";
+                const descMatch = desc.match(/\[FERRAMENTA\] ([^\|]+)/);
+                const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
+                if (descMatch) descricaoFinal = `${descMatch[1].trim()} - Roda ${wheelId}`;
+                if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
               }
+            } else if (isEletricaId(wheelId)) {
+              categoria = "eletrica";
+              itemLabel = getMapLabel(wheelId);
+              tempo = 30;
+              if (desc.startsWith("[TROCA]")) {
+                acao = "trocar";
+                const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
+                if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
+                descricaoFinal = `Troca de componente - ${itemLabel} ${wheelId}`;
+              } else if (desc.startsWith("[FERRAMENTA]")) {
+                acao = "ajustar";
+                const descMatch = desc.match(/\[FERRAMENTA\] ([^\|]+)/);
+                const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
+                if (descMatch) descricaoFinal = `${descMatch[1].trim()} - ${itemLabel} ${wheelId}`;
+                if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
+              }
+            } else if (isEstruturalId(wheelId)) {
+              categoria = "estrutural";
+              itemLabel = getMapLabel(wheelId);
+              tempo = 30;
+              if (desc.startsWith("[TROCA]")) {
+                acao = "trocar";
+                const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
+                if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
+                descricaoFinal = `Troca de componente - ${itemLabel} ${wheelId}`;
+              } else if (desc.startsWith("[FERRAMENTA]")) {
+                acao = "ajustar";
+                const descMatch = desc.match(/\[FERRAMENTA\] ([^\|]+)/);
+                const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
+                if (descMatch) descricaoFinal = `${descMatch[1].trim()} - ${itemLabel} ${wheelId}`;
+                if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
+              }
+            } else {
+              continue;
             }
+
+            await createOSItem(osId, {
+              categoria,
+              item: itemLabel,
+              descricao: descricaoFinal,
+              acao,
+              tempoEstimado: tempo,
+              inicioTimer: Date.now()
+            });
           }
         } catch (e) {
           console.error("Erro ao processar rodas:", e);
@@ -3280,6 +3319,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             const diagHasMecanica = selectedOS.itens.some(i => i.categoria === "mecanica");
             const diagHasCatracas = selectedOS.itens.some(i => i.categoria === "catracas");
             const diagHasQuintaRoda = selectedOS.itens.some(i => i.categoria === "quinta_roda");
+            const diagHasEletrica = selectedOS.itens.some(i => i.categoria === "eletrica");
+            const diagHasEstrutural = selectedOS.itens.some(i => i.categoria === "estrutural");
             const rodasData: Record<string, string> = (() => {
               const parsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
               if (diagHasQuintaRoda && !Object.keys(parsed).some(k => k.startsWith("qr-"))) {
@@ -3293,6 +3334,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             const hasBorrachariaRodas = Object.keys(rodasData).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
             const hasMecanicaRodas = Object.keys(rodasData).some(k => k.includes("-p"));
             const hasCatracasRodas = Object.keys(rodasData).some(k => k.startsWith("catr-"));
+            const hasEletricaRodas = Object.keys(rodasData).some(k => k.startsWith("ele-"));
+            const hasEstruturalRodas = Object.keys(rodasData).some(k => k.startsWith("est-"));
             const diagPlacas = {
               cavalo: selectedOS.placa,
               sr1: selectedOS.placa2 || "",
@@ -3558,6 +3601,132 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     />
                   </div>
                 )}
+
+                {diagHasEletrica && hasEletricaRodas && selectedOS.tipoConjunto && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <TruckEletricaMap
+                      tipoConjunto={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
+                      rodas={rodasData}
+                      wheelActions={diagWheelActions}
+                      readOnly={true}
+                      onPointClick={() => {}}
+                      onTrocaClick={(pointId) => {
+                        const existing = diagWheelActions[pointId];
+                        setDiagWheelModalId(pointId);
+                        setDiagWheelModalType("troca");
+                        setDiagWheelModalDesc(existing?.tipo === "troca" ? existing.descricao : "Troca de componente");
+                        setDiagWheelModalTempo(existing?.tipo === "troca" ? existing.tempo : "");
+                        setDiagWheelModalOpen(true);
+                      }}
+                      onWrenchClick={(pointId) => {
+                        const existing = diagWheelActions[pointId];
+                        setDiagWheelModalId(pointId);
+                        setDiagWheelModalType("ferramenta");
+                        setDiagWheelModalDesc(existing?.tipo === "ferramenta" ? existing.descricao : "");
+                        setDiagWheelModalTempo(existing?.tipo === "ferramenta" ? existing.tempo : "");
+                        setDiagWheelModalLocal(existing?.tipo === "ferramenta" && existing.descricao ? (() => { const parts = existing.descricao.split(" - "); return parts.length > 1 ? parts[1] : ""; })() : "");
+                        setDiagWheelModalLocalOutros("");
+                        setDiagWheelModalAcao(existing?.tipo === "ferramenta" && existing.descricao ? existing.descricao.split(" - ")[0] || "" : "");
+                        setDiagWheelModalObs(existing?.observacao || "");
+                        setDiagWheelModalErro("");
+                        setDiagWheelModalOpen(true);
+                      }}
+                      onOkClick={async (pointId) => {
+                        const existing = diagWheelActions[pointId];
+                        if (existing?.tipo === "ok") {
+                          const updated = { ...diagWheelActions };
+                          delete updated[pointId];
+                          setDiagWheelActions(updated);
+                          try {
+                            const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                            const origDesc = rodasParsed[pointId];
+                            if (origDesc) {
+                              const cleanDesc = origDesc.replace(/^\[(OK|TROCA|FERRAMENTA)\]\s*/, "").replace(/\s*\|.*$/, "");
+                              rodasParsed[pointId] = cleanDesc || origDesc;
+                              await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                              setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                            }
+                          } catch {}
+                        } else {
+                          const lbl = getMapLabel(pointId);
+                          const action: WheelActionData = { tipo: "ok", descricao: `${lbl} OK - sem necessidade de manutenção`, tempo: "", observacao: "" };
+                          setDiagWheelActions(prev => ({ ...prev, [pointId]: action }));
+                          try {
+                            const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                            rodasParsed[pointId] = `[OK] ${lbl} OK - sem necessidade de manutenção`;
+                            await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                            setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                          } catch (err) {
+                            console.error("Erro ao salvar OK:", err);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                {diagHasEstrutural && hasEstruturalRodas && selectedOS.tipoConjunto && (
+                  <div className="mt-3 pt-3 border-t border-slate-100">
+                    <TruckEstruturalMap
+                      tipoConjunto={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
+                      rodas={rodasData}
+                      wheelActions={diagWheelActions}
+                      readOnly={true}
+                      onPointClick={() => {}}
+                      onTrocaClick={(pointId) => {
+                        const existing = diagWheelActions[pointId];
+                        setDiagWheelModalId(pointId);
+                        setDiagWheelModalType("troca");
+                        setDiagWheelModalDesc(existing?.tipo === "troca" ? existing.descricao : "Troca de componente");
+                        setDiagWheelModalTempo(existing?.tipo === "troca" ? existing.tempo : "");
+                        setDiagWheelModalOpen(true);
+                      }}
+                      onWrenchClick={(pointId) => {
+                        const existing = diagWheelActions[pointId];
+                        setDiagWheelModalId(pointId);
+                        setDiagWheelModalType("ferramenta");
+                        setDiagWheelModalDesc(existing?.tipo === "ferramenta" ? existing.descricao : "");
+                        setDiagWheelModalTempo(existing?.tipo === "ferramenta" ? existing.tempo : "");
+                        setDiagWheelModalLocal(existing?.tipo === "ferramenta" && existing.descricao ? (() => { const parts = existing.descricao.split(" - "); return parts.length > 1 ? parts[1] : ""; })() : "");
+                        setDiagWheelModalLocalOutros("");
+                        setDiagWheelModalAcao(existing?.tipo === "ferramenta" && existing.descricao ? existing.descricao.split(" - ")[0] || "" : "");
+                        setDiagWheelModalObs(existing?.observacao || "");
+                        setDiagWheelModalErro("");
+                        setDiagWheelModalOpen(true);
+                      }}
+                      onOkClick={async (pointId) => {
+                        const existing = diagWheelActions[pointId];
+                        if (existing?.tipo === "ok") {
+                          const updated = { ...diagWheelActions };
+                          delete updated[pointId];
+                          setDiagWheelActions(updated);
+                          try {
+                            const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                            const origDesc = rodasParsed[pointId];
+                            if (origDesc) {
+                              const cleanDesc = origDesc.replace(/^\[(OK|TROCA|FERRAMENTA)\]\s*/, "").replace(/\s*\|.*$/, "");
+                              rodasParsed[pointId] = cleanDesc || origDesc;
+                              await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                              setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                            }
+                          } catch {}
+                        } else {
+                          const lbl = getMapLabel(pointId);
+                          const action: WheelActionData = { tipo: "ok", descricao: `${lbl} OK - sem necessidade de manutenção`, tempo: "", observacao: "" };
+                          setDiagWheelActions(prev => ({ ...prev, [pointId]: action }));
+                          try {
+                            const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                            rodasParsed[pointId] = `[OK] ${lbl} OK - sem necessidade de manutenção`;
+                            await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                            setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                          } catch (err) {
+                            console.error("Erro ao salvar OK:", err);
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </>
             );
           })()}
@@ -3566,7 +3735,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         {/* Itens */}
         <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
           {(() => {
-            const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda"];
+            const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural"];
             const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat));
             const itensNaoMapa = selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria));
             const isMapCat = mapCats.includes(diagNovoItemCat);
@@ -3870,6 +4039,128 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                 }}
                               />
                             )}
+                            {diagNovoItemCat === "eletrica" && (
+                              <TruckEletricaMap
+                                tipoConjunto={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
+                                rodas={addMapRodasData}
+                                placas={addMapPlacas}
+                                wheelActions={diagWheelActions}
+                                readOnly={true}
+                                onPointClick={() => {}}
+                                onTrocaClick={(pointId) => {
+                                  const existing = diagWheelActions[pointId];
+                                  setDiagWheelModalId(pointId);
+                                  setDiagWheelModalType("troca");
+                                  setDiagWheelModalDesc(existing?.tipo === "troca" ? existing.descricao : "Troca de componente");
+                                  setDiagWheelModalTempo(existing?.tipo === "troca" ? existing.tempo : "");
+                                  setDiagWheelModalOpen(true);
+                                }}
+                                onWrenchClick={(pointId) => {
+                                  const existing = diagWheelActions[pointId];
+                                  setDiagWheelModalId(pointId);
+                                  setDiagWheelModalType("ferramenta");
+                                  setDiagWheelModalDesc(existing?.tipo === "ferramenta" ? existing.descricao : "");
+                                  setDiagWheelModalTempo(existing?.tipo === "ferramenta" ? existing.tempo : "");
+                                  setDiagWheelModalLocal(existing?.tipo === "ferramenta" && existing.descricao ? (() => { const parts = existing.descricao.split(" - "); return parts.length > 1 ? parts[1] : ""; })() : "");
+                                  setDiagWheelModalLocalOutros("");
+                                  setDiagWheelModalAcao(existing?.tipo === "ferramenta" && existing.descricao ? existing.descricao.split(" - ")[0] || "" : "");
+                                  setDiagWheelModalObs(existing?.observacao || "");
+                                  setDiagWheelModalErro("");
+                                  setDiagWheelModalOpen(true);
+                                }}
+                                onOkClick={async (pointId) => {
+                                  const existing = diagWheelActions[pointId];
+                                  if (existing?.tipo === "ok") {
+                                    const updated = { ...diagWheelActions };
+                                    delete updated[pointId];
+                                    setDiagWheelActions(updated);
+                                    try {
+                                      const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                                      const origDesc = rodasParsed[pointId];
+                                      if (origDesc) {
+                                        const cleanDesc = origDesc.replace(/^\[(OK|TROCA|FERRAMENTA)\]\s*/, "").replace(/\s*\|.*$/, "");
+                                        rodasParsed[pointId] = cleanDesc || origDesc;
+                                        await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                                        setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                                      }
+                                    } catch {}
+                                  } else {
+                                    const lbl = getMapLabel(pointId);
+                                    const action: WheelActionData = { tipo: "ok", descricao: `${lbl} OK - sem necessidade de manutenção`, tempo: "", observacao: "" };
+                                    setDiagWheelActions(prev => ({ ...prev, [pointId]: action }));
+                                    try {
+                                      const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                                      rodasParsed[pointId] = `[OK] ${lbl} OK - sem necessidade de manutenção`;
+                                      await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                                      setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                                    } catch (err) {
+                                      console.error("Erro ao salvar OK:", err);
+                                    }
+                                  }
+                                }}
+                              />
+                            )}
+                            {diagNovoItemCat === "estrutural" && (
+                              <TruckEstruturalMap
+                                tipoConjunto={selectedOS.tipoConjunto as "bitrem" | "tritrem"}
+                                rodas={addMapRodasData}
+                                placas={addMapPlacas}
+                                wheelActions={diagWheelActions}
+                                readOnly={true}
+                                onPointClick={() => {}}
+                                onTrocaClick={(pointId) => {
+                                  const existing = diagWheelActions[pointId];
+                                  setDiagWheelModalId(pointId);
+                                  setDiagWheelModalType("troca");
+                                  setDiagWheelModalDesc(existing?.tipo === "troca" ? existing.descricao : "Troca de componente");
+                                  setDiagWheelModalTempo(existing?.tipo === "troca" ? existing.tempo : "");
+                                  setDiagWheelModalOpen(true);
+                                }}
+                                onWrenchClick={(pointId) => {
+                                  const existing = diagWheelActions[pointId];
+                                  setDiagWheelModalId(pointId);
+                                  setDiagWheelModalType("ferramenta");
+                                  setDiagWheelModalDesc(existing?.tipo === "ferramenta" ? existing.descricao : "");
+                                  setDiagWheelModalTempo(existing?.tipo === "ferramenta" ? existing.tempo : "");
+                                  setDiagWheelModalLocal(existing?.tipo === "ferramenta" && existing.descricao ? (() => { const parts = existing.descricao.split(" - "); return parts.length > 1 ? parts[1] : ""; })() : "");
+                                  setDiagWheelModalLocalOutros("");
+                                  setDiagWheelModalAcao(existing?.tipo === "ferramenta" && existing.descricao ? existing.descricao.split(" - ")[0] || "" : "");
+                                  setDiagWheelModalObs(existing?.observacao || "");
+                                  setDiagWheelModalErro("");
+                                  setDiagWheelModalOpen(true);
+                                }}
+                                onOkClick={async (pointId) => {
+                                  const existing = diagWheelActions[pointId];
+                                  if (existing?.tipo === "ok") {
+                                    const updated = { ...diagWheelActions };
+                                    delete updated[pointId];
+                                    setDiagWheelActions(updated);
+                                    try {
+                                      const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                                      const origDesc = rodasParsed[pointId];
+                                      if (origDesc) {
+                                        const cleanDesc = origDesc.replace(/^\[(OK|TROCA|FERRAMENTA)\]\s*/, "").replace(/\s*\|.*$/, "");
+                                        rodasParsed[pointId] = cleanDesc || origDesc;
+                                        await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                                        setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                                      }
+                                    } catch {}
+                                  } else {
+                                    const lbl = getMapLabel(pointId);
+                                    const action: WheelActionData = { tipo: "ok", descricao: `${lbl} OK - sem necessidade de manutenção`, tempo: "", observacao: "" };
+                                    setDiagWheelActions(prev => ({ ...prev, [pointId]: action }));
+                                    try {
+                                      const rodasParsed: Record<string, string> = (() => { try { return JSON.parse(selectedOS.rodas || "{}"); } catch { return {}; } })();
+                                      rodasParsed[pointId] = `[OK] ${lbl} OK - sem necessidade de manutenção`;
+                                      await updateOS(selectedOS.id, { rodas: JSON.stringify(rodasParsed) });
+                                      setSelectedOS(prev => prev ? { ...prev, rodas: JSON.stringify(rodasParsed) } : prev);
+                                    } catch (err) {
+                                      console.error("Erro ao salvar OK:", err);
+                                    }
+                                  }
+                                }}
+                              />
+                            )}
                           </div>
                           <button
                             onClick={() => { setShowAddItemForm(false); setDiagNovoItemCat(""); setDiagAddMapRodas({}); }}
@@ -4026,13 +4317,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setDiagAddMapModalOpen(false)}>
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
                       <h3 className="text-lg font-bold text-slate-800 mb-1">
-                        {diagNovoItemCat === "catracas" ? "Catraca" : diagNovoItemCat === "quinta_roda" ? "5ª Roda" : diagNovoItemCat === "mecanica" ? "Ponto" : "Roda"}: {diagAddMapModalId}
+                        {diagNovoItemCat === "eletrica" ? "Elétrica" : diagNovoItemCat === "estrutural" ? "Estrutural" : diagNovoItemCat === "catracas" ? "Catraca" : diagNovoItemCat === "quinta_roda" ? "5ª Roda" : diagNovoItemCat === "mecanica" ? "Ponto" : "Roda"}: {diagAddMapModalId}
                       </h3>
                       <p className="text-sm text-slate-500 mb-4">
-                        {diagNovoItemCat === "catracas" ? "Descreva o problema desta catraca" : diagNovoItemCat === "quinta_roda" ? "Descreva o problema deste ponto de 5ª roda" : diagNovoItemCat === "mecanica" ? "Descreva o problema deste ponto" : "Descreva o problema desta roda"}
+                        {diagNovoItemCat === "eletrica" ? "Descreva o problema elétrico deste ponto" : diagNovoItemCat === "estrutural" ? "Descreva o problema estrutural deste ponto" : diagNovoItemCat === "catracas" ? "Descreva o problema desta catraca" : diagNovoItemCat === "quinta_roda" ? "Descreva o problema deste ponto de 5ª roda" : diagNovoItemCat === "mecanica" ? "Descreva o problema deste ponto" : "Descreva o problema desta roda"}
                       </p>
                       <Textarea
-                        placeholder={diagNovoItemCat === "catracas" ? "Ex: Catraca travada, desgastada..." : diagNovoItemCat === "quinta_roda" ? "Ex: Pino-rei desgastado, folga na 5ª roda..." : diagNovoItemCat === "mecanica" ? "Ex: Vazamento, folga..." : "Ex: Pneu careca, desgaste irregular..."}
+                        placeholder={diagNovoItemCat === "eletrica" ? "Ex: Sinaleira queimada, chicote partido..." : diagNovoItemCat === "estrutural" ? "Ex: Paralama amassado, chassi trincado..." : diagNovoItemCat === "catracas" ? "Ex: Catraca travada, desgastada..." : diagNovoItemCat === "quinta_roda" ? "Ex: Pino-rei desgastado, folga na 5ª roda..." : diagNovoItemCat === "mecanica" ? "Ex: Vazamento, folga..." : "Ex: Pneu careca, desgaste irregular..."}
                         value={diagAddMapModalDesc}
                         onChange={(e) => setDiagAddMapModalDesc(e.target.value)}
                         className="h-24 mb-4 text-base bg-slate-50 border-slate-200 rounded-xl resize-none"
@@ -4070,7 +4361,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           })()}
 
           {(() => {
-            const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda"];
+            const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural"];
             const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat));
             return selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria));
           })().map((item, idx) => {
@@ -4388,7 +4679,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 <div>
                   <h3 className="text-lg font-bold text-slate-800">
                     {diagWheelModalType === "troca" 
-                      ? ((diagWheelModalId.includes("-p") || diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId)) ? "Troca de Componente" : "Troca de Pneu")
+                      ? ((diagWheelModalId.includes("-p") || diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId) || isEletricaId(diagWheelModalId) || isEstruturalId(diagWheelModalId)) ? "Troca de Componente" : "Troca de Pneu")
                       : "Serviço / Ferramenta"}
                   </h3>
                   <p className="text-sm text-slate-500">{getMapLabel(diagWheelModalId)}: {diagWheelModalId}</p>
@@ -4405,9 +4696,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         ? ["Spider", "Catraca", "Pistão", "Outros"]
                         : isQuintaRodaId(diagWheelModalId)
                           ? ["Pino-rei", "Kit 5ª Roda", "5ª Roda", "Outros"]
-                          : (diagWheelModalId.includes("-p") 
-                            ? ["Rodado", "Lona de freio", "Ajustador de freio", "Conjunto do eixo s", "Tambor de freio", "Outros"]
-                            : ["Pneu", "Roda", "Prisioneiro de roda", "Outros"])
+                          : isEletricaId(diagWheelModalId)
+                            ? ["Chicote", "Lanterna", "Vigia", "Luz de Placa", "Sirene", "Conexão", "Outros"]
+                            : isEstruturalId(diagWheelModalId)
+                              ? ["Mesa 5ª Roda", "Protetor", "Fueiro", "Assoalho", "Chassi", "Para-lama", "Parachoque", "Outros"]
+                              : (diagWheelModalId.includes("-p") 
+                                ? ["Rodado", "Lona de freio", "Ajustador de freio", "Conjunto do eixo s", "Tambor de freio", "Outros"]
+                                : ["Pneu", "Roda", "Prisioneiro de roda", "Outros"])
                       ).map((local) => (
                         <button
                           key={local}
@@ -4518,11 +4813,11 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         </div>
                       </div>
                     )}
-                    {diagWheelModalType === "troca" && (diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId)) && (
+                    {diagWheelModalType === "troca" && (diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId) || isEletricaId(diagWheelModalId) || isEstruturalId(diagWheelModalId)) && (
                       <div className="mb-4">
                         <label className="text-xs font-semibold text-slate-600 block mb-2">Componente para troca</label>
                         <div className="flex flex-wrap gap-2">
-                          {(isQuintaRodaId(diagWheelModalId) ? ["Pino-rei", "Kit 5ª Roda", "5ª Roda"] : ["Catraca", "Trava", "Barra"]).map((comp) => (
+                          {(isQuintaRodaId(diagWheelModalId) ? ["Pino-rei", "Kit 5ª Roda", "5ª Roda"] : isEletricaId(diagWheelModalId) ? ["Chicote", "Lanterna", "Vigia", "Luz de Placa", "Sirene"] : isEstruturalId(diagWheelModalId) ? ["Mesa 5ª Roda", "Protetor", "Fueiro", "Assoalho", "Chassi", "Para-lama"] : ["Catraca", "Trava", "Barra"]).map((comp) => (
                             <button
                               key={comp}
                               onClick={() => setDiagWheelModalLocal(comp)}
@@ -4613,7 +4908,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   onClick={async () => {
                     let desc = "";
                     if (diagWheelModalType === "troca") {
-                      if (diagWheelModalId.includes("-p") || diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId)) {
+                      if (diagWheelModalId.includes("-p") || diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId) || isEletricaId(diagWheelModalId) || isEstruturalId(diagWheelModalId)) {
                         if (!diagWheelModalLocal) {
                           setDiagWheelModalErro("Selecione o componente para troca");
                           return;
@@ -4659,7 +4954,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       // Se for ponto (mecânica/catracas/etc) criado agora, garantir que exista um OSItem executável.
                       // Para rodas (borracharia) o sistema já cria automaticamente ao liberar manutenção.
                       if (!isWheelId(diagWheelModalId)) {
-                        const categoria = diagWheelModalId.startsWith("catr-") ? "catracas" : isQuintaRodaId(diagWheelModalId) ? "quinta_roda" : (diagWheelModalId.includes("-p") ? "mecanica" : "mecanica");
+                        const categoria = diagWheelModalId.startsWith("catr-") ? "catracas" : isQuintaRodaId(diagWheelModalId) ? "quinta_roda" : isEletricaId(diagWheelModalId) ? "eletrica" : isEstruturalId(diagWheelModalId) ? "estrutural" : (diagWheelModalId.includes("-p") ? "mecanica" : "mecanica");
                         const jaExiste = selectedOS.itens?.some(i => (i.descricao || "").includes(diagWheelModalId)) || false;
                         if (!jaExiste) {
                           const acao = diagWheelModalType === "troca" ? "trocar" : (diagWheelModalAcao || "ajustar").toLowerCase();
@@ -5135,6 +5430,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             const hasMechPoints = Object.keys(rodasObj).some(k => k.includes("-p"));
             const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-"));
             const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-"));
+            const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
+            const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
 
             const handleMapInfo = (wId: string) => {
               setManutMapInfoWheelId(wId);
@@ -5438,6 +5735,134 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     </div>
                   </div>
                 )}
+
+                {hasEletricaPoints && (
+                  <div className="px-4 pt-4">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                        Mapa Elétrica
+                      </h4>
+                      <TruckEletricaMap
+                        tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
+                        rodas={rodasObj}
+                        iconMode="manutencao"
+                        manutStatus={manutStatusMap as any}
+                        wheelActions={diagWheelActions}
+                        onPointClick={() => {}}
+                        onInfoClick={handleMapInfo}
+                        onPackageClick={handleMapPackage}
+                        onApprovalClick={handleMapApproval}
+                        onCompleteClick={handleMapComplete}
+                        onTrocaClick={(wId) => {
+                          setManutMapActionId(wId);
+                          setManutMapActionType("troca");
+                          setManutMapActionDesc("Troca de componente");
+                          setManutMapActionTempo("");
+                          setManutMapActionLocal("");
+                          setManutMapActionLocalOutros("");
+                          setManutMapActionAcao("");
+                          setManutMapActionObs("");
+                          setManutMapActionErro("");
+                          setManutMapActionOpen(true);
+                        }}
+                        onWrenchClick={(wId) => {
+                          setManutMapActionId(wId);
+                          setManutMapActionType("ferramenta");
+                          setManutMapActionDesc("");
+                          setManutMapActionTempo("");
+                          setManutMapActionLocal("");
+                          setManutMapActionLocalOutros("");
+                          setManutMapActionAcao("");
+                          setManutMapActionObs("");
+                          setManutMapActionErro("");
+                          setManutMapActionOpen(true);
+                        }}
+                        onOkClick={async (wId) => {
+                          const lbl = getMapLabel(wId);
+                          try {
+                            await createOSItem(selectedOSManut.id, {
+                              categoria: "eletrica",
+                              item: lbl,
+                              descricao: `${lbl} ${wId}: OK - sem necessidade de manutenção`,
+                              acao: "ok",
+                              tempoEstimado: 0,
+                              inicioTimer: Date.now(),
+                            });
+                            await refetchOS();
+                            const updated = osList.find(o => o.id === selectedOSManut.id);
+                            if (updated) setSelectedOSManut(updated);
+                          } catch (err) { console.error("Erro ao salvar OK:", err); }
+                        }}
+                        readOnly={false}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {hasEstruturalPoints && (
+                  <div className="px-4 pt-4">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                        Mapa Estrutural
+                      </h4>
+                      <TruckEstruturalMap
+                        tipoConjunto={selectedOSManut.tipoConjunto as "bitrem" | "tritrem"}
+                        rodas={rodasObj}
+                        iconMode="manutencao"
+                        manutStatus={manutStatusMap as any}
+                        wheelActions={diagWheelActions}
+                        onPointClick={() => {}}
+                        onInfoClick={handleMapInfo}
+                        onPackageClick={handleMapPackage}
+                        onApprovalClick={handleMapApproval}
+                        onCompleteClick={handleMapComplete}
+                        onTrocaClick={(wId) => {
+                          setManutMapActionId(wId);
+                          setManutMapActionType("troca");
+                          setManutMapActionDesc("Troca de componente");
+                          setManutMapActionTempo("");
+                          setManutMapActionLocal("");
+                          setManutMapActionLocalOutros("");
+                          setManutMapActionAcao("");
+                          setManutMapActionObs("");
+                          setManutMapActionErro("");
+                          setManutMapActionOpen(true);
+                        }}
+                        onWrenchClick={(wId) => {
+                          setManutMapActionId(wId);
+                          setManutMapActionType("ferramenta");
+                          setManutMapActionDesc("");
+                          setManutMapActionTempo("");
+                          setManutMapActionLocal("");
+                          setManutMapActionLocalOutros("");
+                          setManutMapActionAcao("");
+                          setManutMapActionObs("");
+                          setManutMapActionErro("");
+                          setManutMapActionOpen(true);
+                        }}
+                        onOkClick={async (wId) => {
+                          const lbl = getMapLabel(wId);
+                          try {
+                            await createOSItem(selectedOSManut.id, {
+                              categoria: "estrutural",
+                              item: lbl,
+                              descricao: `${lbl} ${wId}: OK - sem necessidade de manutenção`,
+                              acao: "ok",
+                              tempoEstimado: 0,
+                              inicioTimer: Date.now(),
+                            });
+                            await refetchOS();
+                            const updated = osList.find(o => o.id === selectedOSManut.id);
+                            if (updated) setSelectedOSManut(updated);
+                          } catch (err) { console.error("Erro ao salvar OK:", err); }
+                        }}
+                        readOnly={false}
+                      />
+                    </div>
+                  </div>
+                )}
               </>
             );
           } catch { return null; }
@@ -5587,9 +6012,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         ? ["Spider", "Catraca", "Pistão", "Outros"]
                         : isQuintaRodaId(manutMapActionId)
                           ? ["Pino-rei", "Kit 5ª Roda", "5ª Roda", "Outros"]
-                          : (manutMapActionId.includes("-p")
-                            ? ["Rodado", "Lona de freio", "Ajustador de freio", "Conjunto do eixo s", "Tambor de freio", "Outros"]
-                            : ["Pneu", "Roda", "Prisioneiro de roda", "Outros"])
+                          : isEletricaId(manutMapActionId)
+                            ? ["Chicote", "Lanterna", "Vigia", "Luz de Placa", "Sirene", "Conexão", "Outros"]
+                            : isEstruturalId(manutMapActionId)
+                              ? ["Mesa 5ª Roda", "Protetor", "Fueiro", "Assoalho", "Chassi", "Para-lama", "Parachoque", "Outros"]
+                              : (manutMapActionId.includes("-p")
+                                ? ["Rodado", "Lona de freio", "Ajustador de freio", "Conjunto do eixo s", "Tambor de freio", "Outros"]
+                                : ["Pneu", "Roda", "Prisioneiro de roda", "Outros"])
                       ).map((local) => (
                         <button key={local} onClick={() => { setManutMapActionLocal(local); setManutMapActionErro(""); }}
                           className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${manutMapActionLocal === local ? "bg-blue-600 text-white shadow-md shadow-blue-500/30" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
@@ -5658,11 +6087,11 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       </div>
                     </div>
                   )}
-                  {(manutMapActionId.startsWith("catr-") || isQuintaRodaId(manutMapActionId)) && (
+                  {(manutMapActionId.startsWith("catr-") || isQuintaRodaId(manutMapActionId) || isEletricaId(manutMapActionId) || isEstruturalId(manutMapActionId)) && (
                     <div>
                       <label className="text-xs font-semibold text-slate-600 block mb-2">Componente para troca</label>
                       <div className="flex flex-wrap gap-2">
-                        {(isQuintaRodaId(manutMapActionId) ? ["Pino-rei", "Kit 5ª Roda", "5ª Roda"] : ["Catraca", "Trava", "Barra"]).map((comp) => (
+                        {(isQuintaRodaId(manutMapActionId) ? ["Pino-rei", "Kit 5ª Roda", "5ª Roda"] : isEletricaId(manutMapActionId) ? ["Chicote", "Lanterna", "Vigia", "Luz de Placa", "Sirene"] : isEstruturalId(manutMapActionId) ? ["Mesa 5ª Roda", "Protetor", "Fueiro", "Assoalho", "Chassi", "Para-lama"] : ["Catraca", "Trava", "Barra"]).map((comp) => (
                           <button key={comp} onClick={() => setManutMapActionLocal(comp)}
                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${manutMapActionLocal === comp ? "bg-orange-600 text-white shadow-md shadow-orange-500/30" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                             {comp}
@@ -5710,9 +6139,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 <button
                   onClick={async () => {
                     let desc = "";
-                    const categoria = manutMapActionId.startsWith("catr-") ? "catracas" : isQuintaRodaId(manutMapActionId) ? "quinta_roda" : (manutMapActionId.includes("-p") ? "mecanica" : "borracharia");
+                    const categoria = manutMapActionId.startsWith("catr-") ? "catracas" : isQuintaRodaId(manutMapActionId) ? "quinta_roda" : isEletricaId(manutMapActionId) ? "eletrica" : isEstruturalId(manutMapActionId) ? "estrutural" : (manutMapActionId.includes("-p") ? "mecanica" : "borracharia");
                     if (manutMapActionType === "troca") {
-                      if (manutMapActionId.includes("-p") || manutMapActionId.startsWith("catr-") || isQuintaRodaId(manutMapActionId)) {
+                      if (manutMapActionId.includes("-p") || manutMapActionId.startsWith("catr-") || isQuintaRodaId(manutMapActionId) || isEletricaId(manutMapActionId) || isEstruturalId(manutMapActionId)) {
                         if (!manutMapActionLocal) { setManutMapActionErro("Selecione o componente para troca"); return; }
                         desc = `Troca de ${manutMapActionLocal.toLowerCase()}`;
                       } else {
@@ -7019,6 +7448,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
     const isMecanica = categoriaAtual === "mecanica";
     const isCatracas = categoriaAtual === "catracas";
     const isQuintaRoda = categoriaAtual === "quinta_roda";
+    const isEletrica = categoriaAtual === "eletrica";
+    const isEstrutural = categoriaAtual === "estrutural";
 
     return (
       <div className="min-h-screen bg-white flex flex-col">
@@ -7119,7 +7550,45 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             </div>
           )}
 
-          {!isBorracharia && !isMecanica && !isCatracas && !isQuintaRoda && itensCategoria.map((item, idx) => (
+          {isEletrica && tipoConjunto && (
+            <div className="mb-6 border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
+              <TruckEletricaMap
+                tipoConjunto={tipoConjunto as "bitrem" | "tritrem"}
+                rodas={rodasSelecionadas}
+                placas={{
+                  sr1: placa,
+                  sr2: placa2,
+                  sr3: tipoConjunto === "tritrem" ? placa3 : undefined,
+                }}
+                onPointClick={(id) => {
+                  setWheelModalId(id);
+                  setWheelModalDesc(rodasSelecionadas[id] || "");
+                  setWheelModalOpen(true);
+                }}
+              />
+            </div>
+          )}
+
+          {isEstrutural && tipoConjunto && (
+            <div className="mb-6 border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
+              <TruckEstruturalMap
+                tipoConjunto={tipoConjunto as "bitrem" | "tritrem"}
+                rodas={rodasSelecionadas}
+                placas={{
+                  sr1: placa,
+                  sr2: placa2,
+                  sr3: tipoConjunto === "tritrem" ? placa3 : undefined,
+                }}
+                onPointClick={(id) => {
+                  setWheelModalId(id);
+                  setWheelModalDesc(rodasSelecionadas[id] || "");
+                  setWheelModalOpen(true);
+                }}
+              />
+            </div>
+          )}
+
+          {!isBorracharia && !isMecanica && !isCatracas && !isQuintaRoda && !isEletrica && !isEstrutural && itensCategoria.map((item, idx) => (
             <div key={item.id} className="bg-slate-50 rounded-xl p-4 mb-3 flex items-start justify-between">
               <div>
                 <span className="text-xs font-bold text-slate-400">ITEM {idx + 1}</span>
@@ -7131,7 +7600,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             </div>
           ))}
 
-          {!isBorracharia && !isMecanica && !isCatracas && !isQuintaRoda && (
+          {!isBorracharia && !isMecanica && !isCatracas && !isQuintaRoda && !isEletrica && !isEstrutural && (
             <>
               <div className="mt-4">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -7179,13 +7648,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setWheelModalOpen(false)}>
             <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-bold text-slate-800 mb-1">
-                {isQuintaRoda ? "5ª Roda" : isCatracas ? "Catraca" : isMecanica ? "Ponto" : "Roda"}: {wheelModalId}
+                {isEletrica ? "Elétrica" : isEstrutural ? "Estrutural" : isQuintaRoda ? "5ª Roda" : isCatracas ? "Catraca" : isMecanica ? "Ponto" : "Roda"}: {wheelModalId}
               </h3>
               <p className="text-sm text-slate-500 mb-4">
-                {isQuintaRoda ? "Descreva o problema deste ponto de 5ª roda" : isCatracas ? "Descreva o problema desta catraca" : isMecanica ? "Descreva o problema deste ponto" : "Descreva o problema desta roda"}
+                {isEletrica ? "Descreva o problema elétrico deste ponto" : isEstrutural ? "Descreva o problema estrutural deste ponto" : isQuintaRoda ? "Descreva o problema deste ponto de 5ª roda" : isCatracas ? "Descreva o problema desta catraca" : isMecanica ? "Descreva o problema deste ponto" : "Descreva o problema desta roda"}
               </p>
               <Textarea
-                placeholder={isQuintaRoda ? "Ex: Pino-rei desgastado, folga na 5ª roda..." : isCatracas ? "Ex: Catraca travada, desgastada..." : isMecanica ? "Ex: Vazamento, folga..." : "Ex: Pneu careca, desgaste irregular..."}
+                placeholder={isEletrica ? "Ex: Sinaleira queimada, chicote partido..." : isEstrutural ? "Ex: Paralama amassado, chassi trincado..." : isQuintaRoda ? "Ex: Pino-rei desgastado, folga na 5ª roda..." : isCatracas ? "Ex: Catraca travada, desgastada..." : isMecanica ? "Ex: Vazamento, folga..." : "Ex: Pneu careca, desgaste irregular..."}
                 value={wheelModalDesc}
                 onChange={(e) => setWheelModalDesc(e.target.value)}
                 className="h-24 mb-4 text-base bg-slate-50 border-slate-200 rounded-xl resize-none"
@@ -7620,6 +8089,90 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     }}
                     onPointClick={() => {}}
                     onPointClear={() => {}}
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
+
+        {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
+          try {
+            const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
+            const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-"));
+            if (!hasCatracasPoints) return null;
+            return (
+              <div className="px-4 pt-2">
+                <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa de Catracas</h4>
+                  <TruckCatracasMap
+                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
+                    rodas={rodasObj}
+                    onPointClick={() => {}}
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
+
+        {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
+          try {
+            const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
+            const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-"));
+            if (!hasQuintaRodaPoints) return null;
+            return (
+              <div className="px-4 pt-2">
+                <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa de 5ª Roda</h4>
+                  <TruckQuintaRodaMap
+                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
+                    rodas={rodasObj}
+                    onPointClick={() => {}}
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
+
+        {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
+          try {
+            const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
+            const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
+            if (!hasEletricaPoints) return null;
+            return (
+              <div className="px-4 pt-2">
+                <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa Elétrica</h4>
+                  <TruckEletricaMap
+                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
+                    rodas={rodasObj}
+                    onPointClick={() => {}}
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
+
+        {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
+          try {
+            const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
+            const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
+            if (!hasEstruturalPoints) return null;
+            return (
+              <div className="px-4 pt-2">
+                <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa Estrutural</h4>
+                  <TruckEstruturalMap
+                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
+                    rodas={rodasObj}
+                    onPointClick={() => {}}
                     readOnly={true}
                   />
                 </div>
