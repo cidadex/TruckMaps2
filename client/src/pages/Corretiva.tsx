@@ -8146,10 +8146,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                             {item.descricao?.replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\|.*$/, "") || item.descricao}
                           </p>
                           {item.item && item.item !== "Outros" && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">Local: {item.item}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Peça/Local: {item.item}</p>
                           )}
                           {item.item === "Outros" && item.descricaoCustom && (
-                            <p className="text-[10px] text-slate-500 mt-0.5">Local: {item.descricaoCustom}</p>
+                            <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Peça/Local: {item.descricaoCustom}</p>
                           )}
                         </div>
 
