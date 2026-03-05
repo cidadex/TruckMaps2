@@ -30,41 +30,54 @@ export interface TruckQuintaRodaMapProps {
 // ── Layout constants ─────────────────────────────────────────────
 const BW       = 90;
 const SVG_PADX = 4;
-const SVG_PADY = 4;
+const SVG_PADY = 6;
 const SVG_W    = BW + SVG_PADX * 2;
+const CX       = SVG_PADX + BW / 2;   // center X — all dots here
 
-const CX       = SVG_PADX + BW / 2;
-const LEFT_X   = SVG_PADX + 16;
-const RIGHT_X  = SVG_PADX + BW - 16;
-
-const ROW_H    = 32;
-const ROW_PAD  = 8;
-
+const ROW_H    = 30;   // height per point row
+const ROW_GAP  = 6;    // gap between rows
 const CONN_H   = 12;
 const LABEL_W  = 88;
 
-// Per-SR point definitions
-type SRDef = { key: "sr1" | "sr2" | "sr3"; leftId: string; leftLabel: string; rightId?: string; rightLabel?: string };
+// body height based on number of points
+function bodyHeight(nPts: number) {
+  return SVG_PADY + nPts * ROW_H + (nPts - 1) * ROW_GAP + SVG_PADY;
+}
+// Y center of row i (0-indexed)
+function rowCY(i: number) {
+  return SVG_PADY + i * (ROW_H + ROW_GAP) + ROW_H / 2;
+}
+
+// Per-SR point list
+type PointDef = { id: string; label: string };
+type SRDef    = { key: "sr1" | "sr2" | "sr3"; points: PointDef[] };
 
 function getSections(tipoConjunto: "bitrem" | "tritrem"): SRDef[] {
   if (tipoConjunto === "bitrem") {
     return [
-      { key: "sr1", leftId: "qr-sr1-frente", leftLabel: "PONTO FRENTE", rightId: "qr-sr1-tras", rightLabel: "5ª RODA" },
-      { key: "sr2", leftId: "qr-sr2-frente", leftLabel: "PONTO FRENTE" },
+      { key: "sr1", points: [
+        { id: "qr-sr1-frente", label: "PONTO FRENTE" },
+        { id: "qr-sr1-tras",   label: "5ª RODA"      },
+      ]},
+      { key: "sr2", points: [
+        { id: "qr-sr2-frente", label: "PONTO FRENTE" },
+      ]},
     ];
   }
   return [
-    { key: "sr1", leftId: "qr-sr1-frente", leftLabel: "PONTO FRENTE", rightId: "qr-sr1-tras", rightLabel: "5ª RODA" },
-    { key: "sr2", leftId: "qr-sr2-frente", leftLabel: "PONTO FRENTE", rightId: "qr-sr2-tras", rightLabel: "5ª RODA" },
-    { key: "sr3", leftId: "qr-sr3-frente", leftLabel: "PONTO FRENTE" },
+    { key: "sr1", points: [
+      { id: "qr-sr1-frente", label: "PONTO FRENTE" },
+      { id: "qr-sr1-tras",   label: "5ª RODA"      },
+    ]},
+    { key: "sr2", points: [
+      { id: "qr-sr2-frente", label: "PONTO FRENTE" },
+      { id: "qr-sr2-tras",   label: "5ª RODA"      },
+    ]},
+    { key: "sr3", points: [
+      { id: "qr-sr3-frente", label: "PONTO FRENTE" },
+    ]},
   ];
 }
-
-// Body height: 1 row of points + padding
-function bodyHeight() {
-  return SVG_PADY + ROW_PAD + ROW_H + ROW_PAD + SVG_PADY;
-}
-const rowCY = SVG_PADY + ROW_PAD + ROW_H / 2;  // center Y of the single point row
 
 export default function TruckQuintaRodaMap({
   tipoConjunto,
@@ -83,15 +96,14 @@ export default function TruckQuintaRodaMap({
   onCompleteClick,
   placas,
 }: TruckQuintaRodaMapProps) {
-  const showIcons = !!wheelActions || iconMode === "manutencao";
-  const ICON_W    = showIcons ? 60 : 0;
-  const colW      = LABEL_W + ICON_W;
+  const showIcons  = !!wheelActions || iconMode === "manutencao";
+  const ICON_W     = showIcons ? 60 : 0;
+  const colW       = LABEL_W + ICON_W;
   const containerW = colW + SVG_W + colW;
 
-  const sections  = getSections(tipoConjunto);
-  const allIds    = sections.flatMap(s => s.rightId ? [s.leftId, s.rightId] : [s.leftId]);
+  const sections   = getSections(tipoConjunto);
+  const allIds     = sections.flatMap(s => s.points.map(p => p.id));
   const issueCount = allIds.filter(id => !!rodas[id]).length;
-  const BH        = bodyHeight();
 
   const getState = (id: string) => {
     const val    = rodas[id] || "";
@@ -158,10 +170,8 @@ export default function TruckQuintaRodaMap({
   };
 
   const SRSection = ({ sr }: { sr: SRDef }) => {
-    const hasBoth = !!sr.rightId;
-    // For single-point sections, center the dot; for two-point, use left/right
-    const lx = hasBoth ? LEFT_X  : CX;
-    const rx = RIGHT_X;
+    const nPts = sr.points.length;
+    const BH   = bodyHeight(nPts);
 
     return (
       <div style={{ position: "relative", width: containerW, height: BH }}>
@@ -171,54 +181,53 @@ export default function TruckQuintaRodaMap({
           <svg width={SVG_W} height={BH} style={{ overflow: "visible" }}>
 
             {/* Outer border */}
-            <rect x={SVG_PADX} y={SVG_PADY} width={BW} height={BH - SVG_PADY * 2}
+            <rect x={SVG_PADX} y={SVG_PADY / 2} width={BW} height={BH - SVG_PADY}
               fill="none" stroke="#2c5aa0" strokeWidth={2} rx={3} />
 
-            {/* Left dot box */}
-            <rect x={SVG_PADX} y={rowCY - 12} width={lx - SVG_PADX + 10} height={24}
-              fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
-            <circle cx={lx} cy={rowCY} r={5}
-              fill={dotColor(sr.leftId)}
-              style={{ cursor: readOnly ? "default" : "pointer" }}
-              onClick={() => handleDot(sr.leftId)} />
-
-            {/* Right dot box (only if 2 points) */}
-            {hasBoth && sr.rightId && (
-              <>
-                <rect x={rx - 10} y={rowCY - 12} width={SVG_PADX + BW - rx + 10} height={24}
-                  fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
-                <circle cx={rx} cy={rowCY} r={5}
-                  fill={dotColor(sr.rightId)}
-                  style={{ cursor: readOnly ? "default" : "pointer" }}
-                  onClick={() => handleDot(sr.rightId)} />
-              </>
+            {/* Vertical center line connecting dots (if >1 point) */}
+            {nPts > 1 && (
+              <line x1={CX} y1={rowCY(0)} x2={CX} y2={rowCY(nPts - 1)}
+                stroke="#2c5aa0" strokeWidth={1.5} />
             )}
+
+            {/* Dots + boxes */}
+            {sr.points.map((pt, i) => {
+              const cy = rowCY(i);
+              return (
+                <g key={pt.id}>
+                  {/* Center box */}
+                  <rect x={CX - 14} y={cy - 11} width={28} height={22}
+                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
+                  <circle cx={CX} cy={cy} r={5}
+                    fill={dotColor(pt.id)}
+                    style={{ cursor: readOnly ? "default" : "pointer" }}
+                    onClick={() => handleDot(pt.id)} />
+                </g>
+              );
+            })}
           </svg>
         </div>
 
-        {/* ── LEFT column label ── */}
-        <div style={{ position: "absolute", left: 0, top: rowCY - 10, width: colW }}
-          className="flex items-center justify-end gap-1">
-          {showIcons && <ActionIcons id={sr.leftId} />}
-          <div className="border border-[#2c5aa0] bg-white flex items-center justify-end px-1 cursor-pointer"
-            style={{ width: LABEL_W - 4, height: 20 }}
-            onClick={() => handleDot(sr.leftId)}>
-            <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">{sr.leftLabel}</span>
-          </div>
+        {/* ── LEFT column labels ── */}
+        <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
+          {sr.points.map((pt, i) => {
+            const cy = rowCY(i);
+            return (
+              <div key={pt.id}
+                style={{ position: "absolute", top: cy - 10, right: 0 }}
+                className="flex items-center justify-end gap-1">
+                {showIcons && <ActionIcons id={pt.id} />}
+                <div className="border border-[#2c5aa0] bg-white flex items-center justify-end px-1 cursor-pointer"
+                  style={{ width: LABEL_W - 4, height: 20 }}
+                  onClick={() => handleDot(pt.id)}>
+                  <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">{pt.label}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* ── RIGHT column label (only if 2 points) ── */}
-        {hasBoth && sr.rightId && (
-          <div style={{ position: "absolute", left: colW + SVG_W, top: rowCY - 10, width: colW }}
-            className="flex items-center gap-1">
-            <div className="border border-[#2c5aa0] bg-white flex items-center justify-start px-1 cursor-pointer"
-              style={{ width: LABEL_W - 4, height: 20 }}
-              onClick={() => handleDot(sr.rightId)}>
-              <span className="text-[7px] font-bold text-[#2c5aa0] uppercase">{sr.rightLabel}</span>
-            </div>
-            {showIcons && <ActionIcons id={sr.rightId} />}
-          </div>
-        )}
+        {/* ── RIGHT column (empty — labels are on left only for centered dots) ── */}
       </div>
     );
   };
@@ -248,9 +257,7 @@ export default function TruckQuintaRodaMap({
         <div style={{ width: containerW, margin: "0 auto" }}>
           {sections.map((sr, idx) => (
             <div key={sr.key}>
-              {/* SR header */}
-              <div style={{ width: containerW }}
-                className="flex items-center justify-center mb-1">
+              <div style={{ width: containerW }} className="flex items-center justify-center mb-1">
                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
                   {sr.key.toUpperCase()}
                   {placas && placas[sr.key] && (
