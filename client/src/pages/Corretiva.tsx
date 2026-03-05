@@ -8185,12 +8185,22 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                   <div key={entry.id} className={`flex items-start gap-2 text-[9px] p-2 rounded-lg border ${isRetrabalho ? "bg-orange-50 border-orange-200" : "bg-amber-50 border-amber-100"}`}>
                                     <Wrench className={`w-3 h-3 shrink-0 mt-0.5 ${isRetrabalho ? "text-orange-600" : "text-amber-600"}`} />
                                     <div className="flex-1 min-w-0">
-                                      <span className={`font-black ${isRetrabalho ? "text-orange-800" : "text-amber-800"}`}>
-                                        {isRetrabalho ? "↩ Retrabalho" : "🔧 Manutenção"}
-                                      </span>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className={`font-black ${isRetrabalho ? "text-orange-800" : "text-amber-800"}`}>
+                                          {isRetrabalho ? "↩ Retrabalho" : "🔧 Manutenção"}
+                                        </span>
+                                        {acaoLabel && (
+                                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase ${acaoColor}`}>{acaoLabel}</span>
+                                        )}
+                                      </div>
+                                      {(item.item || item.descricaoCustom) && (
+                                        <p className="text-slate-700 font-bold mt-0.5">
+                                          {item.item === "Outros" ? item.descricaoCustom : item.item}
+                                        </p>
+                                      )}
                                       <p className="text-slate-600">Técnico: <span className="font-bold">{entry.executadoPorNome || "-"}</span></p>
                                       {entry.tempoGasto && entry.tempoGasto > 0 && (
-                                        <p className="text-slate-500">Tempo real: <span className="font-bold text-emerald-700">{Math.round(entry.tempoGasto / 60)}min</span></p>
+                                        <p className="font-bold text-emerald-700">Tempo real: {Math.round(entry.tempoGasto / 60)}min</p>
                                       )}
                                       {entry.observacao && (
                                         <p className="text-slate-500 italic mt-0.5">"{entry.observacao}"</p>
