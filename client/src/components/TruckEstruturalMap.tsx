@@ -27,29 +27,104 @@ export interface TruckEstruturalMapProps {
   placas?: { sr1: string; sr2?: string; sr3?: string };
 }
 
-const BODY_W = 76;
-const BODY_H = 196;
-const SVG_PAD = 10;
-const SVG_W = BODY_W + SVG_PAD * 2;
-const SVG_H = BODY_H + SVG_PAD * 2 + 14;
-const BX = SVG_PAD;
-const BY = SVG_PAD + 14;
+// ── Body geometry constants ───────────────────────────────────────
+const BW = 80;   // body width in px
+const BH = 220;  // body height in px
 
-const PTS = {
-  mesa:     { x: BX + BODY_W / 2,     y: BY + 18  },
-  protLE:   { x: BX + 11,             y: BY + 46  },
-  protLD:   { x: BX + BODY_W - 11,    y: BY + 46  },
-  fueiroL:  { x: BX + 12,             y: BY + 82  },
-  fueiroR:  { x: BX + BODY_W - 12,    y: BY + 82  },
-  assoalho: { x: BX + BODY_W / 2,     y: BY + 110 },
-  chassi:   { x: BX + BODY_W / 2,     y: BY + 140 },
-  paraLE:   { x: BX + 11,             y: BY + 170 },
-  paraLD:   { x: BX + BODY_W - 11,    y: BY + 170 },
+// Y-centers of the 6 inspection rows inside the body
+const ROW_Y = {
+  mesa:      24,
+  protetor:  68,
+  fueiro:   108,
+  assoalho: 140,
+  chassi:   170,
+  bottom:   206,
 };
 
-const LABEL_W = 80;
-const ICON_W = 60;
+// Internal visual rectangles (not interactive, just structure)
+const BODY_RECTS = [
+  { x: 4,  y: 10,  w: 72, h: 28, stroke: "#C41E3A" }, // Mesa 5ª Roda
+  { x: 0,  y: 40,  w: 15, h: 55, stroke: "#C41E3A" }, // Protetor L/E
+  { x: 65, y: 40,  w: 15, h: 55, stroke: "#C41E3A" }, // Protetor L/D
+  { x: 15, y: 97,  w: 50, h: 22, stroke: "#2E5090" }, // Base e Fueiro crossbar
+  { x: 5,  y: 121, w: 70, h: 28, stroke: "#C41E3A" }, // Assoalho
+  { x: 13, y: 151, w: 54, h: 24, stroke: "#2E5090" }, // Chassi
+];
 
+// ── Per-section point definitions ─────────────────────────────────
+// Each point has: suffix for ID, dot X within body, dot Y within body,
+// optional left label, optional right label, optional red default color.
+// The staggered layout (right labels connect to different row than name suggests)
+// matches the reference vectorized diagram exactly.
+type PointDef = {
+  suffix: string;
+  dx: number;
+  dy: number;
+  left: string | null;
+  right: string | null;
+  defaultRed?: boolean;
+};
+
+const SECTION_POINTS: Record<"sr1" | "sr2" | "sr3", PointDef[]> = {
+  sr1: [
+    { suffix: "mesa5roda",   dx: 16, dy: ROW_Y.mesa,     left: "MESA 5ª RODA",              right: null },
+    { suffix: "protetor-le", dx:  7, dy: ROW_Y.protetor,  left: "PROTETOR L/E",              right: null },
+    { suffix: "protetor-ld", dx: 73, dy: ROW_Y.protetor,  left: null,                        right: "PROTETOR L/D" },
+    // Base e Fueiro left dot — labeled "BASE E FUEIRO" on the left
+    { suffix: "base-fueiro", dx: 16, dy: ROW_Y.fueiro,    left: "BASE E FUEIRO",             right: null, defaultRed: true },
+    // Staggered: right dot at fueiro row → labeled "ASSOALHO" on right
+    { suffix: "assoalho",    dx: 64, dy: ROW_Y.fueiro,    left: null,                        right: "ASSOALHO" },
+    // Para-lama L/E left dot at assoalho row (staggered)
+    { suffix: "paralama-le", dx: 16, dy: ROW_Y.assoalho,  left: "PARA-LAMA / PARA-BARRO L/E", right: null },
+    // Staggered: right dot at assoalho row → labeled "CHASSI"
+    { suffix: "chassi",      dx: 64, dy: ROW_Y.assoalho,  left: null,                        right: "CHASSI" },
+    // Para-lama L/D right dot at chassi row (staggered)
+    { suffix: "paralama-ld", dx: 64, dy: ROW_Y.chassi,    left: null,                        right: "PARA-LAMA / PARA-BARRO L/D" },
+    { suffix: "parachoque",  dx: 20, dy: ROW_Y.bottom,    left: "PARA-CHOQUE",               right: null },
+  ],
+  sr2: [
+    // Mesa 5ª Roda on the RIGHT for SR2
+    { suffix: "mesa5roda",   dx: 64, dy: ROW_Y.mesa,     left: null,                        right: "MESA 5ª RODA" },
+    { suffix: "protetor-le", dx:  7, dy: ROW_Y.protetor,  left: "PROTETOR L/E",              right: null },
+    { suffix: "protetor-ld", dx: 73, dy: ROW_Y.protetor,  left: null,                        right: "PROTETOR L/D" },
+    // Staggered: left dot at fueiro row → labeled "ASSOALHO"
+    { suffix: "assoalho",    dx: 16, dy: ROW_Y.fueiro,    left: "ASSOALHO",                  right: null },
+    { suffix: "base-fueiro", dx: 64, dy: ROW_Y.fueiro,    left: null,                        right: "FUEIRO E BASE", defaultRed: true },
+    { suffix: "paralama-le", dx: 16, dy: ROW_Y.assoalho,  left: "PARA-LAMA / PARA-BARRO L/E", right: null },
+    // Staggered: right at assoalho row → "CHASSI"
+    { suffix: "chassi",      dx: 64, dy: ROW_Y.assoalho,  left: null,                        right: "CHASSI" },
+    { suffix: "paralama-ld", dx: 64, dy: ROW_Y.chassi,    left: null,                        right: "PARA-LAMA / PARA-BARRO L/D" },
+    { suffix: "parachoque",  dx: 20, dy: ROW_Y.bottom,    left: "PARA-CHOQUE",               right: null },
+  ],
+  sr3: [
+    { suffix: "mesa5roda",   dx: 16, dy: ROW_Y.mesa,     left: "MESA 5ª RODA",              right: null },
+    { suffix: "protetor-le", dx:  7, dy: ROW_Y.protetor,  left: "PROTETOR L/E",              right: null },
+    { suffix: "protetor-ld", dx: 73, dy: ROW_Y.protetor,  left: null,                        right: "PROTETOR L/D" },
+    { suffix: "base-fueiro", dx: 64, dy: ROW_Y.fueiro,    left: null,                        right: "FUEIRO E BASE", defaultRed: true },
+    { suffix: "assoalho",    dx: 64, dy: ROW_Y.assoalho,  left: null,                        right: "ASSOALHO" },
+    // Staggered: left at assoalho row → "CHASSI"
+    { suffix: "chassi",      dx: 16, dy: ROW_Y.assoalho,  left: "CHASSI",                    right: null },
+    { suffix: "paralama-le", dx: 16, dy: ROW_Y.chassi,    left: "PARA-LAMA / PARA-BARRO L/E", right: null },
+    { suffix: "paralama-ld", dx: 64, dy: ROW_Y.chassi,    left: null,                        right: "PARA-LAMA / PARA-BARRO L/D" },
+    { suffix: "parachoque",  dx: 20, dy: ROW_Y.bottom,    left: "PAINEL TRASEIRO",           right: null },
+    { suffix: "placa",       dx: 60, dy: ROW_Y.bottom,    left: null,                        right: "PLACA DE VEÍCULO LONGO" },
+  ],
+};
+
+// ── SVG layout constants ──────────────────────────────────────────
+const SVG_PAD_X = 5;
+const SVG_PAD_Y = 4;
+const HATCH_H   = 16;
+const SVG_W     = BW + SVG_PAD_X * 2;
+// Height when isFirst (includes top hatch), otherwise just body + padding
+function svgHeight(isFirst: boolean) {
+  return BH + SVG_PAD_Y * 2 + (isFirst ? HATCH_H + 4 : 0);
+}
+function bodyY(isFirst: boolean) {
+  return SVG_PAD_Y + (isFirst ? HATCH_H + 4 : 0);
+}
+
+// ── Component ─────────────────────────────────────────────────────
 export default function TruckEstruturalMap({
   tipoConjunto,
   rodas,
@@ -68,43 +143,46 @@ export default function TruckEstruturalMap({
   placas,
 }: TruckEstruturalMapProps) {
   const showIcons = !!wheelActions || iconMode === "manutencao";
-  const sections = tipoConjunto === "tritrem" ? ["sr1", "sr2", "sr3"] : ["sr1", "sr2"];
+  const sectionKeys: Array<"sr1" | "sr2" | "sr3"> =
+    tipoConjunto === "tritrem" ? ["sr1", "sr2", "sr3"] : ["sr1", "sr2"];
   const issueCount = Object.keys(rodas).filter(k => k.startsWith("est-")).length;
 
+  const LABEL_W = 82;
+  const ICON_W  = showIcons ? 64 : 0;
+  const colW    = LABEL_W + ICON_W;
+  const containerW = colW + SVG_W + colW;
+
   const getState = (id: string) => {
-    const val = rodas[id] || "";
+    const val    = rodas[id] || "";
     const action = wheelActions?.[id];
-    const hasTroca = action?.tipo === "troca" || (!action && val.startsWith("[TROCA]"));
-    const hasWrench = action?.tipo === "ferramenta" || (!action && val.startsWith("[FERRAMENTA]"));
-    const hasOk = action?.tipo === "ok" || (!action && val.startsWith("[OK]"));
+    const hasTroca  = action?.tipo === "troca"       || (!action && val.startsWith("[TROCA]"));
+    const hasWrench = action?.tipo === "ferramenta"  || (!action && val.startsWith("[FERRAMENTA]"));
+    const hasOk     = action?.tipo === "ok"          || (!action && val.startsWith("[OK]"));
     const hasStatus = !!val;
     const ms = manutStatus?.[id];
     return { hasStatus, hasTroca, hasWrench, hasOk, ms };
   };
 
-  const fillFor = (id: string, defaultFill = "#1e293b") => {
+  const dotColor = (id: string, def = "#2E5090") => {
     const { hasStatus, hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (ms?.executado || hasOk) return "#22c55e";
-    if (hasTroca) return "#f97316";
+    if (hasTroca)  return "#f97316";
     if (hasWrench) return "#3b82f6";
     if (hasStatus) return "#ef4444";
-    return defaultFill;
+    return def;
   };
 
   const handleDot = (id: string) => {
-    if (iconMode === "manutencao" && manutStatus?.[id]) {
-      onInfoClick?.(id);
-    } else if (!readOnly) {
-      onPointClick(id);
-    }
+    if (iconMode === "manutencao" && manutStatus?.[id]) { onInfoClick?.(id); }
+    else if (!readOnly) { onPointClick(id); }
   };
 
-  const renderActionIcons = (id: string) => {
+  const ActionIcons = ({ id }: { id: string }) => {
     if (!showIcons) return null;
     const { hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (iconMode === "manutencao" && ms) {
       return (
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <button type="button" onClick={() => onPackageClick?.(id)}
             className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
             <Package className="w-3 h-3" />
@@ -121,7 +199,7 @@ export default function TruckEstruturalMap({
       );
     }
     return (
-      <div className="flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 flex-shrink-0">
         <button type="button" onClick={() => onOkClick?.(id)}
           className={`w-5 h-5 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Check className="w-3 h-3" />
@@ -138,187 +216,149 @@ export default function TruckEstruturalMap({
     );
   };
 
-  // A label+icons pinned at a specific Y coordinate, floating left or right of the body
-  const LabelPin = ({
-    id,
-    label,
-    y,
-    side,
-  }: {
-    id: string;
-    label: string;
-    y: number;
-    side: "left" | "right";
-  }) => {
-    const { hasStatus, hasTroca, hasWrench, hasOk, ms } = getState(id);
-    const active = hasStatus || hasTroca || hasWrench || hasOk || ms?.executado;
-    const textColor = active ? "text-slate-800" : "text-slate-500";
-
-    return (
+  const GlobalRow = ({ id, label }: { id: string; label: string }) => (
+    <div className="flex items-center gap-1.5">
       <div
-        style={{ position: "absolute", top: y - 9, [side === "left" ? "right" : "left"]: 0 }}
-        className={`flex items-center gap-1 ${side === "right" ? "" : "flex-row-reverse"}`}
+        className="border border-[#2E5090] bg-white px-2 py-0.5 flex items-center gap-2 cursor-pointer"
+        onClick={() => handleDot(id)}
       >
-        {showIcons && renderActionIcons(id)}
-        <span className={`text-[8px] font-bold uppercase leading-tight ${textColor} ${side === "left" ? "text-right" : "text-left"}`}
-          style={{ width: LABEL_W, whiteSpace: "pre-line" }}>
-          {label}
-        </span>
+        <span className="text-[7.5px] font-bold text-[#2E5090] uppercase">{label}</span>
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+          style={{ backgroundColor: dotColor(id) }} />
       </div>
-    );
-  };
+      {showIcons && <ActionIcons id={id} />}
+    </div>
+  );
 
-  const GlobalPoint = ({ id, label }: { id: string; label: string }) => {
-    const fill = fillFor(id);
-    return (
-      <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
-        <button
-          type="button"
-          onClick={() => handleDot(id)}
-          className="w-3 h-3 rounded-full flex-shrink-0"
-          style={{ backgroundColor: fill }}
-        />
-        <span className="text-[8px] font-bold text-slate-600 uppercase">{label}</span>
-        {showIcons && renderActionIcons(id)}
-      </div>
-    );
-  };
-
-  const renderSection = (sr: string, sIdx: number) => {
-    const placaKey = sr as "sr1" | "sr2" | "sr3";
-    const placa = placas?.[placaKey];
-    const labelColW = LABEL_W + (showIcons ? ICON_W : 0);
-    const totalW = labelColW + SVG_W + labelColW;
+  const renderSection = (sr: "sr1" | "sr2" | "sr3", sIdx: number) => {
+    const isFirst = sIdx === 0;
+    const isLast  = sr === sectionKeys[sectionKeys.length - 1];
+    const points  = SECTION_POINTS[sr];
+    const placa   = placas?.[sr];
+    const svgH    = svgHeight(isFirst);
+    const bY      = bodyY(isFirst);
+    const bX      = SVG_PAD_X;
+    const containerH = svgH;
 
     return (
       <div key={sr} className="mb-4">
-        <div className="flex items-center justify-center gap-1 mb-0.5">
+        <div className="flex items-center justify-center gap-1 mb-1">
           <span className="text-[10px] font-bold text-slate-600 uppercase">{sr.toUpperCase()}</span>
           {placa && <span className="text-[9px] text-blue-600 font-semibold">({placa})</span>}
         </div>
 
-        <div style={{ position: "relative", width: totalW, margin: "0 auto" }}>
-          {/* SVG body centered */}
-          <div style={{ position: "absolute", left: labelColW, top: 0 }}>
-            <svg width={SVG_W} height={SVG_H} style={{ overflow: "visible" }}>
-              {/* Top mount (5ª roda hitch) */}
-              <rect
-                x={BX + BODY_W / 2 - 11} y={SVG_PAD - 2}
-                width={22} height={10}
-                fill="#dbeafe" stroke="#3b82f6" strokeWidth={1} rx={2}
-              />
-              {/* Hatch lines on mount */}
-              {[-4,-1,2,5].map(i => (
-                <line key={i}
-                  x1={BX + BODY_W / 2 - 11 + 3 + i} y1={SVG_PAD - 2}
-                  x2={BX + BODY_W / 2 - 11 + 3 + i} y2={SVG_PAD + 8}
-                  stroke="#93c5fd" strokeWidth={0.8}
-                />
-              ))}
+        <div style={{ position: "relative", width: containerW, margin: "0 auto", height: containerH }}>
+
+          {/* ── SVG body + dots + lines ── */}
+          <div style={{ position: "absolute", left: colW, top: 0 }}>
+            <svg width={SVG_W} height={svgH} style={{ overflow: "visible" }}>
+              <defs>
+                <pattern id={`ht-${sr}`} width="6" height="6"
+                  patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                  <line x1="0" y1="0" x2="0" y2="6" stroke="#2E5090" strokeWidth="1.5" />
+                </pattern>
+                <pattern id={`hb-${sr}`} width="6" height="6"
+                  patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+                  <line x1="0" y1="0" x2="0" y2="6" stroke="#C41E3A" strokeWidth="1.5" />
+                </pattern>
+              </defs>
+
+              {/* Top hatch bar (first section only) */}
+              {isFirst && (
+                <rect x={bX} y={SVG_PAD_Y} width={BW} height={HATCH_H}
+                  fill={`url(#ht-${sr})`} stroke="#2E5090" strokeWidth={1.5} />
+              )}
+
+              {/* Bottom hatch bar (last section) */}
+              {isLast && (
+                <rect x={bX} y={bY + BH - 26} width={BW} height={26}
+                  fill={`url(#hb-${sr})`} stroke="#C41E3A" strokeWidth={1.5} />
+              )}
 
               {/* Body outline */}
-              <rect x={BX} y={BY} width={BODY_W} height={BODY_H}
-                fill="#f8fafc" stroke="#334155" strokeWidth={2} rx={3} />
+              <rect x={bX} y={bY} width={BW} height={BH}
+                fill="#f8fafc" stroke="#2E5090" strokeWidth={2} />
 
-              {/* Side window cutouts */}
-              <rect x={BX}              y={BY + 32} width={14} height={52}
-                fill="#e2e8f0" stroke="#475569" strokeWidth={1} />
-              <rect x={BX + BODY_W - 14} y={BY + 32} width={14} height={52}
-                fill="#e2e8f0" stroke="#475569" strokeWidth={1} />
+              {/* Internal structural rects */}
+              {BODY_RECTS.map((r, i) => (
+                <rect key={i}
+                  x={bX + r.x} y={bY + r.y} width={r.w} height={r.h}
+                  fill="none" stroke={r.stroke} strokeWidth={1.5} />
+              ))}
 
-              {/* Crossbeam (fueiro) */}
-              <line x1={PTS.fueiroL.x} y1={PTS.fueiroL.y}
-                    x2={PTS.fueiroR.x} y2={PTS.fueiroR.y}
-                    stroke="#64748b" strokeWidth={2.5} />
-
-              {/* Diagonal (chassi) */}
-              <line
-                x1={BX + 16} y1={PTS.assoalho.y + 8}
-                x2={BX + BODY_W - 16} y2={PTS.chassi.y - 8}
-                stroke="#64748b" strokeWidth={1.5}
-              />
-
-              {/* DOTS */}
-              {/* Mesa 5ª Roda */}
-              <circle cx={PTS.mesa.x} cy={PTS.mesa.y} r={5.5}
-                fill={fillFor(`est-${sr}-mesa5roda`)}
-                onClick={() => handleDot(`est-${sr}-mesa5roda`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Protetor L/E */}
-              <circle cx={PTS.protLE.x} cy={PTS.protLE.y} r={5.5}
-                fill={fillFor(`est-${sr}-protetor-le`)}
-                onClick={() => handleDot(`est-${sr}-protetor-le`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Protetor L/D */}
-              <circle cx={PTS.protLD.x} cy={PTS.protLD.y} r={5.5}
-                fill={fillFor(`est-${sr}-protetor-ld`)}
-                onClick={() => handleDot(`est-${sr}-protetor-ld`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Base/Fueiro – left red dot */}
-              <circle cx={PTS.fueiroL.x} cy={PTS.fueiroL.y} r={5.5}
-                fill={fillFor(`est-${sr}-base-fueiro`, "#dc2626")}
-                onClick={() => handleDot(`est-${sr}-base-fueiro`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Base/Fueiro – right red dot */}
-              <circle cx={PTS.fueiroR.x} cy={PTS.fueiroR.y} r={5.5}
-                fill={fillFor(`est-${sr}-base-fueiro`, "#dc2626")}
-                onClick={() => handleDot(`est-${sr}-base-fueiro`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Assoalho */}
-              <circle cx={PTS.assoalho.x} cy={PTS.assoalho.y} r={5.5}
-                fill={fillFor(`est-${sr}-assoalho`)}
-                onClick={() => handleDot(`est-${sr}-assoalho`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Chassi */}
-              <circle cx={PTS.chassi.x} cy={PTS.chassi.y} r={5.5}
-                fill={fillFor(`est-${sr}-chassi`)}
-                onClick={() => handleDot(`est-${sr}-chassi`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Para-lama L/E */}
-              <circle cx={PTS.paraLE.x} cy={PTS.paraLE.y} r={5.5}
-                fill={fillFor(`est-${sr}-paralama-le`)}
-                onClick={() => handleDot(`est-${sr}-paralama-le`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
-              {/* Para-lama L/D */}
-              <circle cx={PTS.paraLD.x} cy={PTS.paraLD.y} r={5.5}
-                fill={fillFor(`est-${sr}-paralama-ld`)}
-                onClick={() => handleDot(`est-${sr}-paralama-ld`)}
-                style={{ cursor: readOnly ? "default" : "pointer" }}
-              />
+              {/* Dots + connector lines to body edges */}
+              {points.map((pt) => {
+                const id   = `est-${sr}-${pt.suffix}`;
+                const fill = dotColor(id, pt.defaultRed ? "#C41E3A" : "#2E5090");
+                const cx   = bX + pt.dx;
+                const cy   = bY + pt.dy;
+                return (
+                  <g key={`${sr}-${pt.suffix}-${pt.dx}`}>
+                    {pt.left  !== null && (
+                      <line x1={cx} y1={cy} x2={bX}      y2={cy} stroke="#2E5090" strokeWidth={1.2} />
+                    )}
+                    {pt.right !== null && (
+                      <line x1={cx} y1={cy} x2={bX + BW} y2={cy} stroke="#2E5090" strokeWidth={1.2} />
+                    )}
+                    <circle cx={cx} cy={cy} r={4.5} fill={fill}
+                      onClick={() => handleDot(id)}
+                      style={{ cursor: readOnly ? "default" : "pointer" }}
+                    />
+                  </g>
+                );
+              })}
             </svg>
           </div>
 
-          {/* LEFT labels column (to the left of body) */}
-          <div style={{ position: "absolute", right: labelColW + SVG_W, top: 0, width: labelColW, height: SVG_H }}>
-            <LabelPin id={`est-${sr}-mesa5roda`}   label="MESA 5ª RODA"            y={PTS.mesa.y}     side="left" />
-            <LabelPin id={`est-${sr}-protetor-le`} label="PROTETOR L/E"            y={PTS.protLE.y}   side="left" />
-            <LabelPin id={`est-${sr}-base-fueiro`} label={"BASE E\nFUEIRO"}        y={PTS.fueiroL.y}  side="left" />
-            <LabelPin id={`est-${sr}-paralama-le`} label={"PARA-LAMA/\nPARA-BARRO L/E"} y={PTS.paraLE.y} side="left" />
+          {/* ── LEFT labels ── */}
+          <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: containerH }}>
+            {points.filter(pt => pt.left !== null).map((pt) => {
+              const id = `est-${sr}-${pt.suffix}`;
+              const cy = bY + pt.dy;
+              return (
+                <div key={`L-${pt.suffix}`}
+                  style={{ position: "absolute", top: cy - 10, right: 0 }}
+                  className="flex items-center justify-end gap-1">
+                  {showIcons && <ActionIcons id={id} />}
+                  <div
+                    className="border border-[#2E5090] bg-white flex items-center justify-end cursor-pointer px-1"
+                    style={{ width: LABEL_W - 4, height: 20 }}
+                    onClick={() => handleDot(id)}
+                  >
+                    <span className="text-[7px] font-bold text-[#2E5090] uppercase leading-tight text-right"
+                      style={{ lineHeight: "1.1" }}>
+                      {pt.left}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* RIGHT labels column (to the right of body) */}
-          <div style={{ position: "absolute", left: labelColW + SVG_W, top: 0, width: labelColW, height: SVG_H }}>
-            <LabelPin id={`est-${sr}-protetor-ld`} label="PROTETOR L/D"            y={PTS.protLD.y}   side="right" />
-            <LabelPin id={`est-${sr}-assoalho`}    label="ASSOALHO"                y={PTS.assoalho.y} side="right" />
-            <LabelPin id={`est-${sr}-chassi`}      label="CHASSI"                  y={PTS.chassi.y}   side="right" />
-            <LabelPin id={`est-${sr}-paralama-ld`} label={"PARA-LAMA/\nPARA-BARRO L/D"} y={PTS.paraLD.y} side="right" />
+          {/* ── RIGHT labels ── */}
+          <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: containerH }}>
+            {points.filter(pt => pt.right !== null).map((pt) => {
+              const id = `est-${sr}-${pt.suffix}`;
+              const cy = bY + pt.dy;
+              return (
+                <div key={`R-${pt.suffix}`}
+                  style={{ position: "absolute", top: cy - 10, left: 0 }}
+                  className="flex items-center gap-1">
+                  <div
+                    className="border border-[#2E5090] bg-white flex items-center justify-start cursor-pointer px-1"
+                    style={{ width: LABEL_W - 4, height: 20 }}
+                    onClick={() => handleDot(id)}
+                  >
+                    <span className="text-[7px] font-bold text-[#2E5090] uppercase leading-tight"
+                      style={{ lineHeight: "1.1" }}>
+                      {pt.right}
+                    </span>
+                  </div>
+                  {showIcons && <ActionIcons id={id} />}
+                </div>
+              );
+            })}
           </div>
-
-          {/* Invisible height spacer */}
-          <div style={{ height: SVG_H }} />
-        </div>
-
-        {/* Para-choque below this section */}
-        <div className="flex justify-center mt-1">
-          <GlobalPoint id={`est-${sr}-parachoque`} label={`Para-choque ${sr.toUpperCase()}`} />
         </div>
       </div>
     );
@@ -327,10 +367,8 @@ export default function TruckEstruturalMap({
   return (
     <ZoomableMap>
       <div className="w-full select-none" data-testid="truck-estrutural-map">
-        <div className="text-center mb-3">
+        <div className="text-center mb-2">
           <p className="text-sm font-semibold text-slate-700">Mapa Estrutural</p>
-          {!showIcons && <p className="text-xs text-slate-500">Toque nos pontos para indicar problemas</p>}
-          {showIcons && <p className="text-xs text-slate-500">Use os ícones laterais para registrar serviços</p>}
           {issueCount > 0 && (
             <span className="inline-block mt-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">
               {issueCount} ponto(s) com problema
@@ -338,22 +376,26 @@ export default function TruckEstruturalMap({
           )}
         </div>
 
-        {/* Mashal Dianteiro */}
+        {/* Malhal Dianteiro — global top */}
         <div className="flex justify-center mb-3">
-          <GlobalPoint id="est-malhal-dianteiro" label="Mashal Dianteiro" />
+          <GlobalRow id="est-malhal-dianteiro" label="MALHAL DIANTEIRO" />
         </div>
 
         {/* Sections */}
-        {sections.map((sr, sIdx) => renderSection(sr, sIdx))}
-
-        {/* Mashal Traseiro + Placa */}
-        <div className="flex flex-wrap justify-center gap-2 mt-1">
-          <GlobalPoint id="est-malhal-traseiro" label="Mashal Traseiro" />
-          <GlobalPoint id="est-placa-veiculo"   label="Placa do Veículo Conj." />
+        <div className="flex flex-col items-center">
+          {sectionKeys.map((sr, sIdx) => renderSection(sr, sIdx))}
         </div>
 
-        {/* Issues list */}
-        {Object.keys(rodas).filter(k => k.startsWith("est-")).length > 0 && !showIcons && (
+        {/* Global bottom (bitrem only — tritrem embeds these in sr3) */}
+        {tipoConjunto === "bitrem" && (
+          <div className="flex flex-wrap justify-center gap-3 mt-2">
+            <GlobalRow id="est-malhal-traseiro" label="MALHAL TRASEIRO" />
+            <GlobalRow id="est-placa-veiculo"   label="PLACA DO VEÍCULO CONJ." />
+          </div>
+        )}
+
+        {/* Problems list (abertura mode) */}
+        {!showIcons && issueCount > 0 && (
           <div className="mt-4 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Pontos com problema:</p>
             {Object.entries(rodas).filter(([id]) => id.startsWith("est-")).map(([id, desc]) => (
@@ -370,9 +412,10 @@ export default function TruckEstruturalMap({
           <div className="mt-3 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
             {Object.entries(wheelActions).filter(([id]) => id.startsWith("est-")).map(([id, action]) => (
-              <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+              <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${
                 action.tipo === "ok" ? "bg-emerald-50 border border-emerald-200" :
-                action.tipo === "troca" ? "bg-orange-50 border border-orange-200" : "bg-blue-50 border border-blue-200"
+                action.tipo === "troca" ? "bg-orange-50 border border-orange-200" :
+                "bg-blue-50 border border-blue-200"
               }`}>
                 <div className="flex items-center gap-2">
                   {action.tipo === "ok" ? <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -381,7 +424,9 @@ export default function TruckEstruturalMap({
                   <span className="font-bold text-xs text-slate-700">{id}</span>
                   <span className="text-xs text-slate-500">{action.descricao}</span>
                 </div>
-                {action.tempo && action.tipo !== "ok" && <span className="text-xs text-slate-500">{action.tempo}min</span>}
+                {action.tempo && action.tipo !== "ok" && (
+                  <span className="text-xs text-slate-500">{action.tempo}min</span>
+                )}
               </div>
             ))}
           </div>

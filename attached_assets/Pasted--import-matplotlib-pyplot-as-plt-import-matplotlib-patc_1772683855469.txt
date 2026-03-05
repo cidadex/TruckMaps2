@@ -1,0 +1,371 @@
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.patches import FancyBboxPatch, Rectangle, Circle, Polygon, FancyArrowPatch
+import numpy as np
+
+# Configurar figura com proporção similar à imagem original
+fig, axes = plt.subplots(3, 1, figsize=(12, 16))
+fig.patch.set_facecolor('white')
+
+# Cores
+AZUL = '#2E5090'
+VERMELHO = '#C41E3A'
+CINZA = '#888888'
+PRETO = '#000000'
+
+# Função para desenhar caixa de texto
+def draw_text_box(ax, x, y, width=0.08, height=0.06):
+    rect = Rectangle((x, y), width, height, linewidth=1.5, 
+                     edgecolor=AZUL, facecolor='white', zorder=2)
+    ax.add_patch(rect)
+    return rect
+
+# Função para desenhar linha de conexão
+def draw_connection(ax, x1, y1, x2, y2, color=AZUL):
+    ax.plot([x1, x2], [y1, y2], color=color, linewidth=1.5, zorder=1)
+
+# Função para desenhar ponto de conexão
+def draw_dot(ax, x, y, color=AZUL):
+    ax.plot(x, y, 'o', color=color, markersize=4, zorder=3)
+
+# ==================== DIAGRAMA 1 (TOPO) ====================
+ax1 = axes[0]
+ax1.set_xlim(0, 1)
+ax1.set_ylim(0, 1)
+ax1.axis('off')
+ax1.set_facecolor('white')
+
+# Retângulo principal (estrutura central)
+main_rect1 = Rectangle((0.35, 0.15), 0.3, 0.7, linewidth=2, 
+                        edgecolor=AZUL, facecolor='none', zorder=2)
+ax1.add_patch(main_rect1)
+
+# Elementos internos do primeiro diagrama
+# Topo - área hachurada
+hatch_rect1 = Rectangle((0.35, 0.82), 0.3, 0.08, linewidth=1.5,
+                         edgecolor=AZUL, facecolor='none', hatch='///', zorder=2)
+ax1.add_patch(hatch_rect1)
+
+# Elementos internos
+# Mesa 5ª roda (topo interno)
+inner1_1 = Rectangle((0.38, 0.72), 0.24, 0.08, linewidth=1.5,
+                      edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(inner1_1)
+
+# Protetores laterais
+inner1_2_left = Rectangle((0.35, 0.55), 0.05, 0.15, linewidth=1.5,
+                           edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(inner1_2_left)
+inner1_2_right = Rectangle((0.60, 0.55), 0.05, 0.15, linewidth=1.5,
+                            edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(inner1_2_right)
+
+# Base e fueltro
+inner1_3 = Rectangle((0.40, 0.42), 0.20, 0.10, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax1.add_patch(inner1_3)
+
+# Assoalho
+inner1_4 = Rectangle((0.38, 0.28), 0.24, 0.10, linewidth=1.5,
+                      edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(inner1_4)
+
+# Chassi
+inner1_5 = Rectangle((0.42, 0.18), 0.16, 0.08, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax1.add_patch(inner1_5)
+
+# Base inferior hachurada
+hatch_rect1_bottom = Rectangle((0.35, 0.15), 0.3, 0.05, linewidth=1.5,
+                                edgecolor=AZUL, facecolor='none', hatch='///', zorder=2)
+ax1.add_patch(hatch_rect1_bottom)
+
+# Pontos de conexão (dots)
+dots1 = [
+    (0.42, 0.88), (0.58, 0.88),  # topo
+    (0.40, 0.76), (0.60, 0.76),  # mesa 5ª roda
+    (0.38, 0.62), (0.62, 0.62),  # protetores
+    (0.45, 0.47), (0.55, 0.47),  # base
+    (0.42, 0.33), (0.58, 0.33),  # assoalho
+    (0.48, 0.22), (0.52, 0.22),  # chassi
+    (0.45, 0.17), (0.55, 0.17),  # base inferior
+]
+for dot in dots1:
+    draw_dot(ax1, dot[0], dot[1], AZUL)
+
+# Caixas de texto e conexões - LADO ESQUERDO
+# Malhal Dianteiro (topo direito)
+draw_text_box(ax1, 0.70, 0.85)
+draw_connection(ax1, 0.70, 0.88, 0.58, 0.88)
+ax1.text(0.74, 0.88, 'MALHAL DIANTEIRO', fontsize=9, va='center', color=AZUL)
+
+# Mesa 5ª roda (esquerdo)
+draw_text_box(ax1, 0.05, 0.74)
+draw_connection(ax1, 0.13, 0.77, 0.40, 0.76)
+ax1.text(0.01, 0.77, 'MESA 5ª RODA', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Protetor L/E (esquerdo)
+draw_text_box(ax1, 0.05, 0.59)
+draw_connection(ax1, 0.13, 0.62, 0.38, 0.62)
+ax1.text(0.01, 0.62, 'PROTETOR L/E', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Base e Fueiro (esquerdo)
+draw_text_box(ax1, 0.05, 0.44)
+draw_connection(ax1, 0.13, 0.47, 0.45, 0.47)
+ax1.text(0.01, 0.47, 'BASE E FUEIRO', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Para-lama / Para-barro L/E (esquerdo)
+draw_text_box(ax1, 0.05, 0.32)
+draw_connection(ax1, 0.13, 0.35, 0.42, 0.33)
+ax1.text(0.01, 0.35, 'PARA-LAMA /\nPARA-BARRO L/E', fontsize=8, va='center', ha='right', color=AZUL)
+
+# Para-choque (esquerdo)
+draw_text_box(ax1, 0.05, 0.20)
+draw_connection(ax1, 0.13, 0.23, 0.45, 0.17)
+ax1.text(0.01, 0.23, 'PARA-CHOQUE', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Caixas de texto - LADO DIREITO
+# Protetor L/D
+draw_text_box(ax1, 0.70, 0.59)
+draw_connection(ax1, 0.70, 0.62, 0.62, 0.62)
+ax1.text(0.74, 0.62, 'PROTETOR L/D', fontsize=9, va='center', color=AZUL)
+
+# Assoalho
+draw_text_box(ax1, 0.70, 0.44)
+draw_connection(ax1, 0.70, 0.47, 0.55, 0.47)
+ax1.text(0.74, 0.47, 'ASSOALHO', fontsize=9, va='center', color=AZUL)
+
+# Chassi
+draw_text_box(ax1, 0.70, 0.30)
+draw_connection(ax1, 0.70, 0.33, 0.58, 0.33)
+ax1.text(0.74, 0.33, 'CHASSI', fontsize=9, va='center', color=AZUL)
+
+# Para-lama / Para-barro L/D
+draw_text_box(ax1, 0.70, 0.18)
+draw_connection(ax1, 0.70, 0.21, 0.52, 0.22)
+ax1.text(0.74, 0.21, 'PARA-LAMA / PARA-BARRO L/D', fontsize=8, va='center', color=AZUL)
+
+# ==================== DIAGRAMA 2 (MEIO) ====================
+ax2 = axes[1]
+ax2.set_xlim(0, 1)
+ax2.set_ylim(0, 1)
+ax2.axis('off')
+ax2.set_facecolor('white')
+
+# Retângulo principal
+main_rect2 = Rectangle((0.35, 0.15), 0.3, 0.7, linewidth=2, 
+                        edgecolor=AZUL, facecolor='none', zorder=2)
+ax2.add_patch(main_rect2)
+
+# Elementos internos
+# Mesa 5ª roda (topo)
+inner2_1 = Rectangle((0.40, 0.75), 0.20, 0.08, linewidth=1.5,
+                      edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(inner2_1)
+
+# Protetores laterais
+inner2_2_left = Rectangle((0.35, 0.58), 0.05, 0.15, linewidth=1.5,
+                           edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(inner2_2_left)
+inner2_2_right = Rectangle((0.60, 0.58), 0.05, 0.15, linewidth=1.5,
+                            edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(inner2_2_right)
+
+# Fueiro e Base
+inner2_3 = Rectangle((0.38, 0.45), 0.24, 0.10, linewidth=1.5,
+                      edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(inner2_3)
+
+# Assoalho
+inner2_4 = Rectangle((0.40, 0.32), 0.20, 0.10, linewidth=1.5,
+                      edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(inner2_4)
+
+# Chassi
+inner2_5 = Rectangle((0.42, 0.20), 0.16, 0.10, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax2.add_patch(inner2_5)
+
+# Base inferior hachurada
+hatch_rect2_bottom = Rectangle((0.35, 0.15), 0.3, 0.05, linewidth=1.5,
+                                edgecolor=AZUL, facecolor='none', hatch='///', zorder=2)
+ax2.add_patch(hatch_rect2_bottom)
+
+# Pontos de conexão
+dots2 = [
+    (0.42, 0.79), (0.58, 0.79),  # mesa 5ª roda
+    (0.38, 0.65), (0.62, 0.65),  # protetores
+    (0.45, 0.50), (0.55, 0.50),  # fueiro
+    (0.42, 0.37), (0.58, 0.37),  # assoalho
+    (0.45, 0.25), (0.55, 0.25),  # chassi
+    (0.42, 0.17), (0.58, 0.17),  # base
+]
+for dot in dots2:
+    draw_dot(ax2, dot[0], dot[1], AZUL)
+
+# Caixas e conexões - ESQUERDA
+# Protetor L/E
+draw_text_box(ax2, 0.05, 0.62)
+draw_connection(ax2, 0.13, 0.65, 0.38, 0.65)
+ax2.text(0.01, 0.65, 'PROTETOR L/E', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Assoalho
+draw_text_box(ax2, 0.05, 0.47)
+draw_connection(ax2, 0.13, 0.50, 0.42, 0.50)
+ax2.text(0.01, 0.50, 'ASSOALHO', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Para-lama / Para-barro L-E
+draw_text_box(ax2, 0.05, 0.32)
+draw_connection(ax2, 0.13, 0.35, 0.42, 0.37)
+ax2.text(0.01, 0.35, 'PARA-LAMA /\nPARA-BARRO L-E', fontsize=8, va='center', ha='right', color=AZUL)
+
+# Para-choque
+draw_text_box(ax2, 0.05, 0.20)
+draw_connection(ax2, 0.13, 0.23, 0.42, 0.17)
+ax2.text(0.01, 0.23, 'PARA-CHOQUE', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Caixas e conexões - DIREITA
+# Mesa 5ª roda
+draw_text_box(ax2, 0.70, 0.77)
+draw_connection(ax2, 0.70, 0.80, 0.58, 0.79)
+ax2.text(0.74, 0.80, 'MESA 5ª RODA', fontsize=9, va='center', color=AZUL)
+
+# Protetor L/D
+draw_text_box(ax2, 0.70, 0.62)
+draw_connection(ax2, 0.70, 0.65, 0.62, 0.65)
+ax2.text(0.74, 0.65, 'PROTETOR L/D', fontsize=9, va='center', color=AZUL)
+
+# Fueiro e Base
+draw_text_box(ax2, 0.70, 0.47)
+draw_connection(ax2, 0.70, 0.50, 0.55, 0.50)
+ax2.text(0.74, 0.50, 'FUEIRO E BASE', fontsize=9, va='center', color=AZUL)
+
+# Chassi
+draw_text_box(ax2, 0.70, 0.32)
+draw_connection(ax2, 0.70, 0.35, 0.58, 0.37)
+ax2.text(0.74, 0.35, 'CHASSI', fontsize=9, va='center', color=AZUL)
+
+# Para-lama / Para-barro L-D
+draw_text_box(ax2, 0.70, 0.20)
+draw_connection(ax2, 0.70, 0.23, 0.55, 0.25)
+ax2.text(0.74, 0.23, 'PARA-LAMA /\nPARA-BARRO L-D', fontsize=8, va='center', color=AZUL)
+
+# ==================== DIAGRAMA 3 (BAIXO) ====================
+ax3 = axes[2]
+ax3.set_xlim(0, 1)
+ax3.set_ylim(0, 1)
+ax3.axis('off')
+ax3.set_facecolor('white')
+
+# Retângulo principal
+main_rect3 = Rectangle((0.35, 0.10), 0.3, 0.75, linewidth=2, 
+                        edgecolor=AZUL, facecolor='none', zorder=2)
+ax3.add_patch(main_rect3)
+
+# Elementos internos
+# Mesa 5ª roda (topo)
+inner3_1 = Rectangle((0.38, 0.78), 0.08, 0.06, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax3.add_patch(inner3_1)
+
+# Protetor L/E (esquerdo alto)
+inner3_2_left = Rectangle((0.35, 0.60), 0.05, 0.15, linewidth=1.5,
+                           edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(inner3_2_left)
+
+# Protetor L/D (direito alto)
+inner3_2_right = Rectangle((0.60, 0.60), 0.05, 0.15, linewidth=1.5,
+                            edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(inner3_2_right)
+
+# Fueiro e Base
+inner3_3 = Rectangle((0.40, 0.50), 0.20, 0.08, linewidth=1.5,
+                      edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(inner3_3)
+
+# Assoalho
+inner3_4 = Rectangle((0.38, 0.35), 0.24, 0.12, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax3.add_patch(inner3_4)
+
+# Chassi
+inner3_5 = Rectangle((0.40, 0.22), 0.20, 0.10, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax3.add_patch(inner3_5)
+
+# Base inferior hachurada
+hatch_rect3_bottom = Rectangle((0.35, 0.10), 0.3, 0.08, linewidth=1.5,
+                                edgecolor=VERMELHO, facecolor='none', hatch='///', zorder=2)
+ax3.add_patch(hatch_rect3_bottom)
+
+# Pontos de conexão
+dots3 = [
+    (0.42, 0.81),  # mesa 5ª roda
+    (0.38, 0.67), (0.62, 0.67),  # protetores
+    (0.48, 0.54),  # fueiro
+    (0.45, 0.41),  # assoalho
+    (0.42, 0.27), (0.58, 0.27),  # chassi
+    (0.45, 0.14), (0.55, 0.14),  # base
+]
+for dot in dots3:
+    draw_dot(ax3, dot[0], dot[1], AZUL)
+
+# Caixas e conexões - ESQUERDA
+# Mesa 5ª roda
+draw_text_box(ax3, 0.05, 0.79)
+draw_connection(ax3, 0.13, 0.82, 0.42, 0.81)
+ax3.text(0.01, 0.82, 'MESA 5ª RODA', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Protetor L/E
+draw_text_box(ax3, 0.05, 0.64)
+draw_connection(ax3, 0.13, 0.67, 0.38, 0.67)
+ax3.text(0.01, 0.67, 'PROTETOR L/E', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Chassi
+draw_text_box(ax3, 0.05, 0.35)
+draw_connection(ax3, 0.13, 0.38, 0.42, 0.41)
+ax3.text(0.01, 0.38, 'CHASSI', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Para-lama / Para-barro L-E
+draw_text_box(ax3, 0.05, 0.22)
+draw_connection(ax3, 0.13, 0.25, 0.42, 0.27)
+ax3.text(0.01, 0.25, 'PARA-LAMA / PARA-BARRO L-E', fontsize=8, va='center', ha='right', color=AZUL)
+
+# Painel Traseiro
+draw_text_box(ax3, 0.05, 0.10)
+draw_connection(ax3, 0.13, 0.13, 0.45, 0.14)
+ax3.text(0.01, 0.13, 'PAINEL TRASEIRO', fontsize=9, va='center', ha='right', color=AZUL)
+
+# Caixas e conexões - DIREITA
+# Protetor L/D
+draw_text_box(ax3, 0.70, 0.64)
+draw_connection(ax3, 0.70, 0.67, 0.62, 0.67)
+ax3.text(0.74, 0.67, 'PROTETOR L/D', fontsize=9, va='center', color=AZUL)
+
+# Fueiro e Base
+draw_text_box(ax3, 0.70, 0.51)
+draw_connection(ax3, 0.70, 0.54, 0.48, 0.54)
+ax3.text(0.74, 0.54, 'FUEIRO E BASE', fontsize=9, va='center', color=AZUL)
+
+# Assoalho
+draw_text_box(ax3, 0.70, 0.38)
+draw_connection(ax3, 0.70, 0.41, 0.45, 0.41)
+ax3.text(0.74, 0.41, 'ASSOALHO', fontsize=9, va='center', color=AZUL)
+
+# Para-lama / Para-barro L-D
+draw_text_box(ax3, 0.70, 0.24)
+draw_connection(ax3, 0.70, 0.27, 0.58, 0.27)
+ax3.text(0.74, 0.27, 'PARA-LAMA / PARA-BARRO L-D', fontsize=8, va='center', color=AZUL)
+
+# Placa de veículo longo
+draw_text_box(ax3, 0.70, 0.10)
+draw_connection(ax3, 0.70, 0.13, 0.55, 0.14)
+ax3.text(0.74, 0.13, 'PLACA DE VEÍCULO LONGO', fontsize=8, va='center', color=AZUL)
+
+plt.tight_layout()
+plt.subplots_adjust(hspace=0.05)
+plt.savefig('/mnt/kimi/output/diagrama_vetorizado.png', dpi=300, bbox_inches='tight', 
+            facecolor='white', edgecolor='none')
+plt.show()
+print("Diagrama vetorizado salvo!")
