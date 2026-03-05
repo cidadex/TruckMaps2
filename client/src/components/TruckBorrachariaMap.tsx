@@ -2,29 +2,32 @@ import { Check, Wrench, RefreshCw, Package, ShieldCheck, CheckCircle2 } from "lu
 import ZoomableMap from "./ZoomableMap";
 
 type StatusTipo = "ok" | "troca" | "ferramenta";
+type ManutStatus = {
+  itemId: number;
+  aguardandoPeca: boolean;
+  pecaSolicitada: string;
+  aguardandoAprovacao: boolean;
+  executado: boolean;
+};
 
-export interface TruckCatracasMapProps {
-  tipoConjunto: "bitrem" | "tritrem";
+export interface TruckBorrachariaMapProps {
+  tipo: "bitrem" | "tritrem";
   rodas: Record<string, string>;
   wheelActions?: Record<string, { tipo: StatusTipo; descricao: string; tempo: string; observacao: string }>;
   readOnly?: boolean;
   iconMode?: "diagnostico" | "manutencao";
-  onPointClick: (id: string) => void;
+  manutStatus?: Record<string, ManutStatus>;
+  onWheelClick: (id: string) => void;
+  onWheelClear?: (id: string) => void;
   onOkClick?: (id: string) => void;
   onTrocaClick?: (id: string) => void;
   onWrenchClick?: (id: string) => void;
-  manutStatus?: Record<string, {
-    itemId: number;
-    aguardandoPeca: boolean;
-    pecaSolicitada: string;
-    aguardandoAprovacao: boolean;
-    executado: boolean;
-  }>;
   onInfoClick?: (id: string) => void;
   onPackageClick?: (id: string) => void;
   onApprovalClick?: (id: string) => void;
   onCompleteClick?: (id: string) => void;
-  placas?: { sr1: string; sr2?: string; sr3?: string };
+  showIcons?: boolean;
+  placas?: { cavalo?: string; sr1?: string; sr2?: string; sr3?: string };
 }
 
 // ── Layout ───────────────────────────────────────────────────────
@@ -32,10 +35,11 @@ const BW       = 90;
 const SVG_PADX = 4;
 const SVG_PADY = 6;
 const SVG_W    = BW + SVG_PADX * 2;
-const LEFT_X   = SVG_PADX + 16;
-const RIGHT_X  = SVG_PADX + BW - 16;
+const LEFT_X   = SVG_PADX + 14;
+const RIGHT_X  = SVG_PADX + BW - 14;
+const CX       = SVG_PADX + BW / 2;
 const CONN_H   = 12;
-const ICON_COL = 52;   // width of icon column (no label text)
+const ICON_COL = 52;
 
 const ROW_H    = 26;
 const ROW_GAP  = 4;
@@ -47,34 +51,49 @@ function rowCY(i: number) {
   return SVG_PADY + i * (ROW_H + ROW_GAP) + ROW_H / 2;
 }
 
-// 4 catracas per side per SR
-function makeCatracaIds(sr: string) {
-  return [1, 2, 3, 4].map(n => ({ left: `catr-${sr}-l${n}`, right: `catr-${sr}-r${n}` }));
-}
-
-export default function TruckCatracasMap({
-  tipoConjunto,
+export default function TruckBorrachariaMap({
+  tipo,
   rodas,
   wheelActions,
   readOnly,
   iconMode = "diagnostico",
-  onPointClick,
+  manutStatus,
+  onWheelClick,
   onOkClick,
   onTrocaClick,
   onWrenchClick,
-  manutStatus,
   onInfoClick,
   onPackageClick,
   onApprovalClick,
   onCompleteClick,
+  showIcons: showIconsProp,
   placas,
-}: TruckCatracasMapProps) {
-  const showIcons  = !!wheelActions || iconMode === "manutencao";
+}: TruckBorrachariaMapProps) {
+  const showIcons  = showIconsProp || !!wheelActions || iconMode === "manutencao";
   const colW       = showIcons ? ICON_COL : 0;
   const containerW = colW + SVG_W + colW;
 
-  const srs = tipoConjunto === "bitrem" ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
-  const issueCount = Object.keys(rodas).filter(k => k.startsWith("catr-")).length;
+  const isBitrem   = tipo === "bitrem";
+  const axlePerSR  = isBitrem ? 3 : 2;
+
+  // Cavalo always has 2 axles
+  const caveAxles = [
+    { left: "cavalo-e1-esq", right: "cavalo-e1-dir" },
+    { left: "cavalo-e2-esq", right: "cavalo-e2-dir" },
+  ];
+
+  const srAxles = (srPrefix: string) =>
+    Array.from({ length: axlePerSR }, (_, i) => ({
+      left:  `${srPrefix}-e${i + 1}-esq`,
+      right: `${srPrefix}-e${i + 1}-dir`,
+    }));
+
+  const srs = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
+
+  const issueCount = Object.keys(rodas).filter(k => {
+    const isWheel = k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe");
+    return isWheel;
+  }).length;
 
   const getState = (id: string) => {
     const val    = rodas[id] || "";
@@ -93,12 +112,12 @@ export default function TruckCatracasMap({
     if (hasTroca)  return "#f97316";
     if (hasWrench) return "#3b82f6";
     if (hasStatus) return "#ef4444";
-    return "#2c5aa0";
+    return "#1e293b";  // dark for tires
   };
 
   const handleDot = (id: string) => {
     if (iconMode === "manutencao" && manutStatus?.[id]) { onInfoClick?.(id); }
-    else if (!readOnly) { onPointClick(id); }
+    else if (!readOnly) { onWheelClick(id); }
   };
 
   const ActionIcons = ({ id, side }: { id: string; side: "left" | "right" }) => {
@@ -106,7 +125,7 @@ export default function TruckCatracasMap({
     const { hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (iconMode === "manutencao" && ms) {
       return (
-        <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
+        <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5`}>
           <button type="button" onClick={() => onPackageClick?.(id)}
             className={`w-4 h-4 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
             <Package className="w-2.5 h-2.5" />
@@ -123,7 +142,7 @@ export default function TruckCatracasMap({
       );
     }
     return (
-      <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
+      <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5`}>
         <button type="button" onClick={() => onOkClick?.(id)}
           className={`w-4 h-4 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Check className="w-2.5 h-2.5" />
@@ -140,40 +159,70 @@ export default function TruckCatracasMap({
     );
   };
 
-  const SRSection = ({ sr }: { sr: string }) => {
-    const rows = makeCatracaIds(sr);
-    const nRows = rows.length;
-    const BH = bodyHeight(nRows);
+  // ── Generic section body ─────────────────────────────────────
+  type AxleDef = { left: string; right: string };
+
+  const BodySection = ({
+    axles,
+    estepeId,
+    fillColor,
+    borderColor = "#2c5aa0",
+  }: {
+    axles: AxleDef[];
+    estepeId?: string;
+    fillColor?: string;
+    borderColor?: string;
+  }) => {
+    const nRows = axles.length + (estepeId ? 1 : 0);
+    const BH    = bodyHeight(nRows);
+    // estepe is first row (index 0), then axles
+    const axleOffset = estepeId ? 1 : 0;
 
     return (
       <div style={{ position: "relative", width: containerW, height: BH }}>
-        {/* SVG body */}
         <div style={{ position: "absolute", left: colW, top: 0 }}>
           <svg width={SVG_W} height={BH} style={{ overflow: "visible" }}>
+
+            {/* Body fill / border */}
             <rect x={SVG_PADX} y={SVG_PADY / 2} width={BW} height={BH - SVG_PADY}
-              fill="none" stroke="#2c5aa0" strokeWidth={2} rx={3} />
+              fill={fillColor || "none"} stroke={borderColor} strokeWidth={2} rx={3} />
 
-            {/* Vertical lines */}
+            {/* Left vertical rail */}
             <line x1={LEFT_X} y1={rowCY(0)} x2={LEFT_X} y2={rowCY(nRows - 1)}
-              stroke="#2c5aa0" strokeWidth={1.5} />
+              stroke={borderColor} strokeWidth={1.5} />
+            {/* Right vertical rail */}
             <line x1={RIGHT_X} y1={rowCY(0)} x2={RIGHT_X} y2={rowCY(nRows - 1)}
-              stroke="#2c5aa0" strokeWidth={1.5} />
+              stroke={borderColor} strokeWidth={1.5} />
 
-            {rows.map(({ left, right }, i) => {
-              const cy = rowCY(i);
+            {/* Estepe (spare) — center dot */}
+            {estepeId && (() => {
+              const cy = rowCY(0);
+              return (
+                <g>
+                  <rect x={CX - 12} y={cy - 10} width={24} height={20}
+                    fill="white" stroke={borderColor} strokeWidth={1.2} rx={2} />
+                  <circle cx={CX} cy={cy} r={4.5}
+                    fill={dotColor(estepeId)}
+                    style={{ cursor: readOnly ? "default" : "pointer" }}
+                    onClick={() => handleDot(estepeId)} />
+                </g>
+              );
+            })()}
+
+            {/* Axle rows */}
+            {axles.map(({ left, right }, i) => {
+              const cy = rowCY(i + axleOffset);
               return (
                 <g key={i}>
-                  {/* Left box + dot */}
                   <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 8} height={20}
-                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
+                    fill="white" stroke={borderColor} strokeWidth={1.2} rx={2} />
                   <circle cx={LEFT_X} cy={cy} r={4.5}
                     fill={dotColor(left)}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(left)} />
 
-                  {/* Right box + dot */}
                   <rect x={RIGHT_X - 8} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 8} height={20}
-                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
+                    fill="white" stroke={borderColor} strokeWidth={1.2} rx={2} />
                   <circle cx={RIGHT_X} cy={cy} r={4.5}
                     fill={dotColor(right)}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
@@ -184,11 +233,17 @@ export default function TruckCatracasMap({
           </svg>
         </div>
 
-        {/* LEFT icon column */}
+        {/* Left icon column */}
         {showIcons && (
           <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
-            {rows.map(({ left }, i) => (
-              <div key={i} style={{ position: "absolute", top: rowCY(i) - 10, right: 0 }}
+            {estepeId && (
+              <div style={{ position: "absolute", top: rowCY(0) - 10, right: 0 }}
+                className="flex items-center justify-end">
+                <ActionIcons id={estepeId} side="left" />
+              </div>
+            )}
+            {axles.map(({ left }, i) => (
+              <div key={i} style={{ position: "absolute", top: rowCY(i + axleOffset) - 10, right: 0 }}
                 className="flex items-center justify-end">
                 <ActionIcons id={left} side="left" />
               </div>
@@ -196,11 +251,11 @@ export default function TruckCatracasMap({
           </div>
         )}
 
-        {/* RIGHT icon column */}
+        {/* Right icon column */}
         {showIcons && (
           <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: BH }}>
-            {rows.map(({ right }, i) => (
-              <div key={i} style={{ position: "absolute", top: rowCY(i) - 10, left: 0 }}
+            {axles.map(({ right }, i) => (
+              <div key={i} style={{ position: "absolute", top: rowCY(i + axleOffset) - 10, left: 0 }}
                 className="flex items-center justify-start">
                 <ActionIcons id={right} side="right" />
               </div>
@@ -215,26 +270,40 @@ export default function TruckCatracasMap({
     <div style={{ position: "relative", width: containerW, height: CONN_H }}>
       <div style={{ position: "absolute", left: colW, top: 0 }}>
         <svg width={SVG_W} height={CONN_H}>
-          <line x1={SVG_PADX + BW / 2} y1={0} x2={SVG_PADX + BW / 2} y2={CONN_H}
-            stroke="#2c5aa0" strokeWidth={2} />
+          <line x1={CX} y1={0} x2={CX} y2={CONN_H} stroke="#2c5aa0" strokeWidth={2} />
         </svg>
       </div>
     </div>
   );
 
+  const cabColor = isBitrem ? "#16a34a" : "#dc2626";
+
   return (
     <ZoomableMap>
-      <div className="w-full select-none" data-testid="truck-catracas-map">
+      <div className="w-full select-none" data-testid="truck-wheel-map">
         <div className="text-center mb-3">
-          <p className="text-sm font-semibold text-slate-700">Mapa de Catracas</p>
+          <p className="text-sm font-semibold text-slate-700">Mapa de Rodas</p>
           {issueCount > 0 && (
             <span className="inline-block mt-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {issueCount} catraca(s) com problema
+              {issueCount} roda(s) com problema
             </span>
           )}
         </div>
 
         <div style={{ width: containerW, margin: "0 auto" }}>
+
+          {/* ── Cavalo ── */}
+          <div className="flex items-center justify-center mb-1">
+            <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded"
+              style={{ background: cabColor + "22", color: cabColor }}>
+              CAVALO{placas?.cavalo ? ` (${placas.cavalo})` : ""}
+            </span>
+          </div>
+          <BodySection axles={caveAxles} fillColor={cabColor + "18"} borderColor={cabColor} />
+
+          <Connector />
+
+          {/* ── SR sections ── */}
           {srs.map((sr, idx) => (
             <div key={sr}>
               <div style={{ width: containerW }} className="flex items-center justify-center mb-1">
@@ -247,17 +316,24 @@ export default function TruckCatracasMap({
                   )}
                 </span>
               </div>
-              <SRSection sr={sr} />
+              <BodySection
+                axles={srAxles(sr)}
+                estepeId={sr === "sr1" ? "sr1-estepe" : undefined}
+              />
               {idx < srs.length - 1 && <Connector />}
             </div>
           ))}
         </div>
 
         {/* Services list */}
-        {wheelActions && Object.entries(wheelActions).filter(([id]) => id.startsWith("catr-")).length > 0 && (
+        {wheelActions && Object.entries(wheelActions).filter(([id]) => {
+          return id.startsWith("cavalo-e") || (id.startsWith("sr") && id.includes("-e")) || id.endsWith("-estepe");
+        }).length > 0 && (
           <div className="mt-3 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
-            {Object.entries(wheelActions).filter(([id]) => id.startsWith("catr-")).map(([id, action]) => (
+            {Object.entries(wheelActions).filter(([id]) =>
+              id.startsWith("cavalo-e") || (id.startsWith("sr") && id.includes("-e")) || id.endsWith("-estepe")
+            ).map(([id, action]) => (
               <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${
                 action.tipo === "ok" ? "bg-emerald-50 border border-emerald-200" :
                 action.tipo === "troca" ? "bg-orange-50 border border-orange-200" :

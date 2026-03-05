@@ -2,29 +2,32 @@ import { Check, Wrench, RefreshCw, Package, ShieldCheck, CheckCircle2 } from "lu
 import ZoomableMap from "./ZoomableMap";
 
 type StatusTipo = "ok" | "troca" | "ferramenta";
+type ManutStatus = {
+  itemId: number;
+  aguardandoPeca: boolean;
+  pecaSolicitada: string;
+  aguardandoAprovacao: boolean;
+  executado: boolean;
+};
 
-export interface TruckCatracasMapProps {
-  tipoConjunto: "bitrem" | "tritrem";
+export interface TruckMecanicaMapProps {
+  tipo: "bitrem" | "tritrem";
   rodas: Record<string, string>;
   wheelActions?: Record<string, { tipo: StatusTipo; descricao: string; tempo: string; observacao: string }>;
   readOnly?: boolean;
   iconMode?: "diagnostico" | "manutencao";
+  manutStatus?: Record<string, ManutStatus>;
   onPointClick: (id: string) => void;
+  onPointClear?: (id: string) => void;
   onOkClick?: (id: string) => void;
   onTrocaClick?: (id: string) => void;
   onWrenchClick?: (id: string) => void;
-  manutStatus?: Record<string, {
-    itemId: number;
-    aguardandoPeca: boolean;
-    pecaSolicitada: string;
-    aguardandoAprovacao: boolean;
-    executado: boolean;
-  }>;
   onInfoClick?: (id: string) => void;
   onPackageClick?: (id: string) => void;
   onApprovalClick?: (id: string) => void;
   onCompleteClick?: (id: string) => void;
-  placas?: { sr1: string; sr2?: string; sr3?: string };
+  showIcons?: boolean;
+  placas?: { cavalo?: string; sr1?: string; sr2?: string; sr3?: string };
 }
 
 // ── Layout ───────────────────────────────────────────────────────
@@ -32,12 +35,12 @@ const BW       = 90;
 const SVG_PADX = 4;
 const SVG_PADY = 6;
 const SVG_W    = BW + SVG_PADX * 2;
-const LEFT_X   = SVG_PADX + 16;
-const RIGHT_X  = SVG_PADX + BW - 16;
+const LEFT_X   = SVG_PADX + 18;
+const RIGHT_X  = SVG_PADX + BW - 18;
 const CONN_H   = 12;
-const ICON_COL = 52;   // width of icon column (no label text)
+const ICON_COL = 52;
 
-const ROW_H    = 26;
+const ROW_H    = 30;
 const ROW_GAP  = 4;
 
 function bodyHeight(nRows: number) {
@@ -47,34 +50,52 @@ function rowCY(i: number) {
   return SVG_PADY + i * (ROW_H + ROW_GAP) + ROW_H / 2;
 }
 
-// 4 catracas per side per SR
-function makeCatracaIds(sr: string) {
-  return [1, 2, 3, 4].map(n => ({ left: `catr-${sr}-l${n}`, right: `catr-${sr}-r${n}` }));
-}
-
-export default function TruckCatracasMap({
-  tipoConjunto,
+export default function TruckMecanicaMap({
+  tipo,
   rodas,
   wheelActions,
   readOnly,
   iconMode = "diagnostico",
+  manutStatus,
   onPointClick,
   onOkClick,
   onTrocaClick,
   onWrenchClick,
-  manutStatus,
   onInfoClick,
   onPackageClick,
   onApprovalClick,
   onCompleteClick,
+  showIcons: showIconsProp,
   placas,
-}: TruckCatracasMapProps) {
-  const showIcons  = !!wheelActions || iconMode === "manutencao";
+}: TruckMecanicaMapProps) {
+  const showIcons  = showIconsProp || !!wheelActions || iconMode === "manutencao";
   const colW       = showIcons ? ICON_COL : 0;
   const containerW = colW + SVG_W + colW;
 
-  const srs = tipoConjunto === "bitrem" ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
-  const issueCount = Object.keys(rodas).filter(k => k.startsWith("catr-")).length;
+  const isBitrem   = tipo === "bitrem";
+  const axlePerSR  = isBitrem ? 3 : 2;
+
+  // Build sections: SR1, SR2 (bitrem) or SR1, SR2, SR3 (tritrem)
+  // Numbers: esq side = 1,2,...axlePerSR per SR; dir side = axlePerSR+1,...2*axlePerSR per SR
+  // Across SRs: SR1 esq: 1..axlePerSR, SR1 dir: axlePerSR+1..2*axlePerSR, SR2 esq: 2*axlePerSR+1 ...
+  const pointsPerSR = axlePerSR * 2;
+
+  type AxleDef = { left: string; right: string; leftNum: number; rightNum: number };
+
+  const makeSRAxles = (sr: string, srIdx: number): AxleDef[] => {
+    const base = srIdx * pointsPerSR;
+    return Array.from({ length: axlePerSR }, (_, i) => ({
+      left:     `${sr}-p${i + 1}-esq`,
+      right:    `${sr}-p${i + 1}-dir`,
+      leftNum:  base + i + 1,
+      rightNum: base + axlePerSR + i + 1,
+    }));
+  };
+
+  const srList = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
+  const sections = srList.map((sr, idx) => ({ sr, axles: makeSRAxles(sr, idx) }));
+
+  const issueCount = Object.keys(rodas).filter(k => k.includes("-p")).length;
 
   const getState = (id: string) => {
     const val    = rodas[id] || "";
@@ -87,13 +108,13 @@ export default function TruckCatracasMap({
     return { hasStatus, hasTroca, hasWrench, hasOk, ms };
   };
 
-  const dotColor = (id: string) => {
+  const dotFill = (id: string) => {
     const { hasStatus, hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (ms?.executado || hasOk) return "#22c55e";
     if (hasTroca)  return "#f97316";
     if (hasWrench) return "#3b82f6";
     if (hasStatus) return "#ef4444";
-    return "#2c5aa0";
+    return "#1e293b";
   };
 
   const handleDot = (id: string) => {
@@ -106,7 +127,7 @@ export default function TruckCatracasMap({
     const { hasTroca, hasWrench, hasOk, ms } = getState(id);
     if (iconMode === "manutencao" && ms) {
       return (
-        <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
+        <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5`}>
           <button type="button" onClick={() => onPackageClick?.(id)}
             className={`w-4 h-4 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
             <Package className="w-2.5 h-2.5" />
@@ -123,7 +144,7 @@ export default function TruckCatracasMap({
       );
     }
     return (
-      <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
+      <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5`}>
         <button type="button" onClick={() => onOkClick?.(id)}
           className={`w-4 h-4 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Check className="w-2.5 h-2.5" />
@@ -140,54 +161,69 @@ export default function TruckCatracasMap({
     );
   };
 
-  const SRSection = ({ sr }: { sr: string }) => {
-    const rows = makeCatracaIds(sr);
-    const nRows = rows.length;
-    const BH = bodyHeight(nRows);
+  const SRSection = ({ axles }: { axles: AxleDef[] }) => {
+    const nRows = axles.length;
+    const BH    = bodyHeight(nRows);
 
     return (
       <div style={{ position: "relative", width: containerW, height: BH }}>
-        {/* SVG body */}
         <div style={{ position: "absolute", left: colW, top: 0 }}>
           <svg width={SVG_W} height={BH} style={{ overflow: "visible" }}>
+
+            {/* Body border */}
             <rect x={SVG_PADX} y={SVG_PADY / 2} width={BW} height={BH - SVG_PADY}
               fill="none" stroke="#2c5aa0" strokeWidth={2} rx={3} />
 
-            {/* Vertical lines */}
+            {/* Vertical rails */}
             <line x1={LEFT_X} y1={rowCY(0)} x2={LEFT_X} y2={rowCY(nRows - 1)}
               stroke="#2c5aa0" strokeWidth={1.5} />
             <line x1={RIGHT_X} y1={rowCY(0)} x2={RIGHT_X} y2={rowCY(nRows - 1)}
               stroke="#2c5aa0" strokeWidth={1.5} />
 
-            {rows.map(({ left, right }, i) => {
+            {axles.map(({ left, right, leftNum, rightNum }, i) => {
               const cy = rowCY(i);
+              const lFill  = dotFill(left);
+              const rFill  = dotFill(right);
+              const lLight = lFill === "#1e293b";
+              const rLight = rFill === "#1e293b";
+
               return (
                 <g key={i}>
-                  {/* Left box + dot */}
-                  <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 8} height={20}
-                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
-                  <circle cx={LEFT_X} cy={cy} r={4.5}
-                    fill={dotColor(left)}
+                  {/* Left numbered circle */}
+                  <circle cx={LEFT_X} cy={cy} r={11}
+                    fill={lFill}
+                    stroke="#2c5aa0" strokeWidth={1.2}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(left)} />
+                  <text x={LEFT_X} y={cy + 4} textAnchor="middle"
+                    fontSize={9} fontWeight="bold"
+                    fill={lLight ? "white" : "white"}
+                    style={{ pointerEvents: "none" }}>
+                    {leftNum}
+                  </text>
 
-                  {/* Right box + dot */}
-                  <rect x={RIGHT_X - 8} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 8} height={20}
-                    fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
-                  <circle cx={RIGHT_X} cy={cy} r={4.5}
-                    fill={dotColor(right)}
+                  {/* Right numbered circle */}
+                  <circle cx={RIGHT_X} cy={cy} r={11}
+                    fill={rFill}
+                    stroke="#2c5aa0" strokeWidth={1.2}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(right)} />
+                  <text x={RIGHT_X} y={cy + 4} textAnchor="middle"
+                    fontSize={9} fontWeight="bold"
+                    fill="white"
+                    style={{ pointerEvents: "none" }}>
+                    {rightNum}
+                  </text>
                 </g>
               );
             })}
           </svg>
         </div>
 
-        {/* LEFT icon column */}
+        {/* Left icons */}
         {showIcons && (
           <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
-            {rows.map(({ left }, i) => (
+            {axles.map(({ left }, i) => (
               <div key={i} style={{ position: "absolute", top: rowCY(i) - 10, right: 0 }}
                 className="flex items-center justify-end">
                 <ActionIcons id={left} side="left" />
@@ -196,10 +232,10 @@ export default function TruckCatracasMap({
           </div>
         )}
 
-        {/* RIGHT icon column */}
+        {/* Right icons */}
         {showIcons && (
           <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: BH }}>
-            {rows.map(({ right }, i) => (
+            {axles.map(({ right }, i) => (
               <div key={i} style={{ position: "absolute", top: rowCY(i) - 10, left: 0 }}
                 className="flex items-center justify-start">
                 <ActionIcons id={right} side="right" />
@@ -224,18 +260,18 @@ export default function TruckCatracasMap({
 
   return (
     <ZoomableMap>
-      <div className="w-full select-none" data-testid="truck-catracas-map">
+      <div className="w-full select-none" data-testid="mechanic-map">
         <div className="text-center mb-3">
-          <p className="text-sm font-semibold text-slate-700">Mapa de Catracas</p>
+          <p className="text-sm font-semibold text-slate-700">Mapa Mecânico</p>
           {issueCount > 0 && (
             <span className="inline-block mt-1 bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {issueCount} catraca(s) com problema
+              {issueCount} ponto(s) com problema
             </span>
           )}
         </div>
 
         <div style={{ width: containerW, margin: "0 auto" }}>
-          {srs.map((sr, idx) => (
+          {sections.map(({ sr, axles }, idx) => (
             <div key={sr}>
               <div style={{ width: containerW }} className="flex items-center justify-center mb-1">
                 <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
@@ -247,17 +283,17 @@ export default function TruckCatracasMap({
                   )}
                 </span>
               </div>
-              <SRSection sr={sr} />
-              {idx < srs.length - 1 && <Connector />}
+              <SRSection axles={axles} />
+              {idx < sections.length - 1 && <Connector />}
             </div>
           ))}
         </div>
 
         {/* Services list */}
-        {wheelActions && Object.entries(wheelActions).filter(([id]) => id.startsWith("catr-")).length > 0 && (
+        {wheelActions && Object.entries(wheelActions).filter(([id]) => id.includes("-p")).length > 0 && (
           <div className="mt-3 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
-            {Object.entries(wheelActions).filter(([id]) => id.startsWith("catr-")).map(([id, action]) => (
+            {Object.entries(wheelActions).filter(([id]) => id.includes("-p")).map(([id, action]) => (
               <div key={id} className={`flex items-center justify-between rounded-lg px-3 py-2 ${
                 action.tipo === "ok" ? "bg-emerald-50 border border-emerald-200" :
                 action.tipo === "troca" ? "bg-orange-50 border border-orange-200" :
