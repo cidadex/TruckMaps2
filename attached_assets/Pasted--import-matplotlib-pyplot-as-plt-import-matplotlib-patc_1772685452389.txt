@@ -1,0 +1,295 @@
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.patches import FancyBboxPatch, Rectangle, Circle, Polygon, FancyArrowPatch
+import numpy as np
+
+# Configurar figura
+fig, axes = plt.subplots(3, 1, figsize=(12, 16))
+fig.patch.set_facecolor('white')
+
+# Cores
+AZUL = '#2E5090'
+VERMELHO = '#C41E3A'
+CINZA = '#666666'
+PRETO = '#000000'
+
+# Função para desenhar caixa de texto
+def draw_text_box(ax, x, y, width=0.12, height=0.05):
+    rect = Rectangle((x, y), width, height, linewidth=1.5, 
+                     edgecolor=AZUL, facecolor='white', zorder=2)
+    ax.add_patch(rect)
+    return rect
+
+# Função para desenhar linha de conexão
+def draw_connection(ax, x1, y1, x2, y2, color=AZUL, style='-'):
+    ax.plot([x1, x2], [y1, y2], color=color, linewidth=1.5, linestyle=style, zorder=1)
+
+# Função para desenhar ponto de conexão
+def draw_dot(ax, x, y, color=VERMELHO, size=5):
+    ax.plot(x, y, 'o', color=color, markersize=size, zorder=3)
+
+# ==================== DIAGRAMA 1 (TOPO - SR1) ====================
+ax1 = axes[0]
+ax1.set_xlim(0, 1)
+ax1.set_ylim(0, 1)
+ax1.axis('off')
+ax1.set_facecolor('white')
+
+# Retângulo principal (seção SR1)
+main_rect1 = Rectangle((0.35, 0.25), 0.3, 0.5, linewidth=2, 
+                        edgecolor=AZUL, facecolor='none', zorder=2)
+ax1.add_patch(main_rect1)
+
+# Caixa superior (conexão)
+top_box1 = Rectangle((0.40, 0.82), 0.20, 0.06, linewidth=1.5,
+                      edgecolor=AZUL, facecolor='none', zorder=2)
+ax1.add_patch(top_box1)
+
+# Linha vertical central
+ax1.plot([0.50, 0.50], [0.25, 0.82], color=VERMELHO, linewidth=2, zorder=1)
+
+# Elementos internos - vigas
+viga_sup_le = Rectangle((0.35, 0.68), 0.05, 0.07, linewidth=1.5,
+                         edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(viga_sup_le)
+viga_sup_ld = Rectangle((0.60, 0.68), 0.05, 0.07, linewidth=1.5,
+                         edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(viga_sup_ld)
+
+viga_amarelo_le = Rectangle((0.35, 0.52), 0.05, 0.12, linewidth=1.5,
+                             edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(viga_amarelo_le)
+viga_amarelo_ld = Rectangle((0.60, 0.52), 0.05, 0.12, linewidth=1.5,
+                             edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(viga_amarelo_ld)
+
+# Lanternas (base)
+lanterna_le = Rectangle((0.35, 0.28), 0.05, 0.06, linewidth=1.5,
+                         edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(lanterna_le)
+lanterna_ld = Rectangle((0.60, 0.28), 0.05, 0.06, linewidth=1.5,
+                         edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(lanterna_ld)
+
+# Conector inferior
+conector_bottom1 = Rectangle((0.47, 0.20), 0.06, 0.05, linewidth=1.5,
+                              edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax1.add_patch(conector_bottom1)
+
+# Pontos de conexão (vermelhos)
+dots1 = [
+    (0.38, 0.72), (0.62, 0.72),  # viga sup
+    (0.38, 0.58), (0.62, 0.58),  # viga amarelo
+    (0.38, 0.31), (0.62, 0.31),  # lanternas
+    (0.50, 0.82), (0.50, 0.25),  # vertical
+]
+for dot in dots1:
+    draw_dot(ax1, dot[0], dot[1], VERMELHO)
+
+# Linhas de conexão superior
+ax1.plot([0.50, 0.50], [0.75, 0.82], color=VERMELHO, linewidth=2, zorder=1)
+
+# TEXTOS - ESQUERDA
+ax1.text(0.33, 0.85, 'CONEXÃO CAVALO PARA SR1', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax1, 0.33, 0.85, 0.40, 0.85)
+
+ax1.text(0.33, 0.72, 'VIGA SUP. L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax1, 0.33, 0.72, 0.38, 0.72)
+
+ax1.text(0.33, 0.58, 'VIGA AMARELO L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax1, 0.33, 0.58, 0.38, 0.58)
+
+ax1.text(0.33, 0.45, 'CHICOTE', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax1, 0.33, 0.45, 0.35, 0.45)
+
+ax1.text(0.33, 0.31, 'LANTERNA L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax1, 0.33, 0.31, 0.38, 0.31)
+
+# TEXTOS - DIREITA
+ax1.text(0.67, 0.72, 'VIGA SUP. L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax1, 0.67, 0.72, 0.62, 0.72)
+
+ax1.text(0.67, 0.58, 'VIGA AMARELO L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax1, 0.67, 0.58, 0.62, 0.58)
+
+ax1.text(0.67, 0.45, 'LUZ DE PLACA', fontsize=9, va='center', color=AZUL)
+draw_connection(ax1, 0.67, 0.45, 0.65, 0.45)
+
+ax1.text(0.67, 0.31, 'LANTERNA L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax1, 0.67, 0.31, 0.62, 0.31)
+
+ax1.text(0.67, 0.22, 'CONEXÃO SR1 PARA SR2', fontsize=9, va='center', color=AZUL)
+draw_connection(ax1, 0.67, 0.22, 0.53, 0.22)
+
+# ==================== DIAGRAMA 2 (MEIO - SR2) ====================
+ax2 = axes[1]
+ax2.set_xlim(0, 1)
+ax2.set_ylim(0, 1)
+ax2.axis('off')
+ax2.set_facecolor('white')
+
+# Retângulo principal (seção SR2)
+main_rect2 = Rectangle((0.35, 0.25), 0.3, 0.5, linewidth=2, 
+                        edgecolor=AZUL, facecolor='none', zorder=2)
+ax2.add_patch(main_rect2)
+
+# Linha vertical central
+ax2.plot([0.50, 0.50], [0.25, 0.82], color=VERMELHO, linewidth=2, zorder=1)
+
+# Elementos internos
+viga_amarelo_le2 = Rectangle((0.35, 0.52), 0.05, 0.12, linewidth=1.5,
+                              edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(viga_amarelo_le2)
+viga_amarelo_ld2 = Rectangle((0.60, 0.52), 0.05, 0.12, linewidth=1.5,
+                              edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(viga_amarelo_ld2)
+
+# Lanternas (base)
+lanterna_le2 = Rectangle((0.35, 0.28), 0.05, 0.06, linewidth=1.5,
+                          edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(lanterna_le2)
+lanterna_ld2 = Rectangle((0.60, 0.28), 0.05, 0.06, linewidth=1.5,
+                          edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(lanterna_ld2)
+
+# Conectores
+conector_top2 = Rectangle((0.47, 0.78), 0.06, 0.05, linewidth=1.5,
+                           edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(conector_top2)
+conector_bottom2 = Rectangle((0.47, 0.20), 0.06, 0.05, linewidth=1.5,
+                              edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax2.add_patch(conector_bottom2)
+
+# Pontos de conexão
+dots2 = [
+    (0.38, 0.58), (0.62, 0.58),  # viga amarelo
+    (0.38, 0.31), (0.62, 0.31),  # lanternas
+    (0.50, 0.80), (0.50, 0.25),  # vertical
+]
+for dot in dots2:
+    draw_dot(ax2, dot[0], dot[1], VERMELHO)
+
+# Linhas verticais
+ax2.plot([0.50, 0.50], [0.75, 0.80], color=VERMELHO, linewidth=2, zorder=1)
+
+# TEXTOS - ESQUERDA
+ax2.text(0.33, 0.80, 'CHICOTE', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax2, 0.33, 0.80, 0.35, 0.80)
+
+ax2.text(0.33, 0.58, 'VIGA AMARELO L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax2, 0.33, 0.58, 0.38, 0.58)
+
+ax2.text(0.33, 0.31, 'LANTERNA L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax2, 0.33, 0.31, 0.38, 0.31)
+
+# TEXTOS - DIREITA
+ax2.text(0.67, 0.58, 'VIGA AMARELO L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax2, 0.67, 0.58, 0.62, 0.58)
+
+ax2.text(0.67, 0.45, 'LUZ DE PLACA', fontsize=9, va='center', color=AZUL)
+draw_connection(ax2, 0.67, 0.45, 0.65, 0.45)
+
+ax2.text(0.67, 0.31, 'LANTERNA L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax2, 0.67, 0.31, 0.62, 0.31)
+
+ax2.text(0.67, 0.22, 'CONEXÃO SR2 PARA SR3', fontsize=9, va='center', color=AZUL)
+draw_connection(ax2, 0.67, 0.22, 0.53, 0.22)
+
+# ==================== DIAGRAMA 3 (BAIXO - SR3) ====================
+ax3 = axes[2]
+ax3.set_xlim(0, 1)
+ax3.set_ylim(0, 1)
+ax3.axis('off')
+ax3.set_facecolor('white')
+
+# Retângulo principal (seção SR3)
+main_rect3 = Rectangle((0.35, 0.20), 0.3, 0.55, linewidth=2, 
+                        edgecolor=AZUL, facecolor='none', zorder=2)
+ax3.add_patch(main_rect3)
+
+# Linha vertical central
+ax3.plot([0.50, 0.50], [0.20, 0.82], color=VERMELHO, linewidth=2, zorder=1)
+
+# Elementos internos
+viga_amarelo_le3 = Rectangle((0.35, 0.55), 0.05, 0.10, linewidth=1.5,
+                              edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(viga_amarelo_le3)
+viga_amarelo_ld3 = Rectangle((0.60, 0.55), 0.05, 0.10, linewidth=1.5,
+                              edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(viga_amarelo_ld3)
+
+viga_vermelho_le3 = Rectangle((0.35, 0.32), 0.05, 0.08, linewidth=1.5,
+                               edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(viga_vermelho_le3)
+viga_vermelho_ld3 = Rectangle((0.60, 0.32), 0.05, 0.08, linewidth=1.5,
+                               edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(viga_vermelho_ld3)
+
+# Lanternas (base)
+lanterna_le3 = Rectangle((0.35, 0.22), 0.05, 0.06, linewidth=1.5,
+                          edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(lanterna_le3)
+lanterna_ld3 = Rectangle((0.60, 0.22), 0.05, 0.06, linewidth=1.5,
+                          edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(lanterna_ld3)
+
+# Conector superior
+conector_top3 = Rectangle((0.47, 0.78), 0.06, 0.05, linewidth=1.5,
+                           edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(conector_top3)
+
+# Sirene (elemento extra na base)
+sirene = Rectangle((0.47, 0.20), 0.06, 0.04, linewidth=1.5,
+                    edgecolor=VERMELHO, facecolor='none', zorder=2)
+ax3.add_patch(sirene)
+
+# Pontos de conexão
+dots3 = [
+    (0.38, 0.60), (0.62, 0.60),  # viga amarelo
+    (0.38, 0.36), (0.62, 0.36),  # viga vermelho
+    (0.38, 0.25), (0.62, 0.25),  # lanternas
+    (0.50, 0.80), (0.50, 0.22),  # vertical
+]
+for dot in dots3:
+    draw_dot(ax3, dot[0], dot[1], VERMELHO)
+
+# Linha vertical
+ax3.plot([0.50, 0.50], [0.75, 0.80], color=VERMELHO, linewidth=2, zorder=1)
+
+# TEXTOS - ESQUERDA
+ax3.text(0.33, 0.60, 'VIGA AMARELO L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax3, 0.33, 0.60, 0.38, 0.60)
+
+ax3.text(0.33, 0.45, 'CHICOTE', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax3, 0.33, 0.45, 0.35, 0.45)
+
+ax3.text(0.33, 0.36, 'VIGA VERMELHO L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax3, 0.33, 0.36, 0.38, 0.36)
+
+ax3.text(0.33, 0.25, 'LANTERNA L/E', fontsize=9, va='center', ha='right', color=AZUL)
+draw_connection(ax3, 0.33, 0.25, 0.38, 0.25)
+
+# TEXTOS - DIREITA
+ax3.text(0.67, 0.60, 'VIGA AMARELO L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax3, 0.67, 0.60, 0.62, 0.60)
+
+ax3.text(0.67, 0.36, 'VIGA VERMELHO L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax3, 0.67, 0.36, 0.62, 0.36)
+
+ax3.text(0.67, 0.25, 'LANTERNA L/D', fontsize=9, va='center', color=AZUL)
+draw_connection(ax3, 0.67, 0.25, 0.62, 0.25)
+
+# TEXTOS - BASE (centro)
+ax3.text(0.40, 0.15, 'LUZ DE PLACA', fontsize=9, va='center', ha='center', color=AZUL)
+draw_connection(ax3, 0.40, 0.18, 0.40, 0.20)
+
+ax3.text(0.60, 0.15, 'SIRENE DO RE', fontsize=9, va='center', ha='center', color=AZUL)
+draw_connection(ax3, 0.60, 0.18, 0.53, 0.20)
+
+plt.tight_layout()
+plt.subplots_adjust(hspace=0.1)
+plt.savefig('/mnt/kimi/output/diagrama_eletrico_vetorizado.png', dpi=300, bbox_inches='tight', 
+            facecolor='white', edgecolor='none')
+plt.show()
+print("Diagrama elétrico vetorizado salvo!")
