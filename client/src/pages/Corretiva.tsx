@@ -7822,8 +7822,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 status === "nao_conforme" ? "border-l-4 border-l-red-500" :
                 "border-l-4 border-l-slate-300"
               } ${jaAprovadoAnteriormente ? "opacity-80" : ""}`}>
-                <div className="flex items-start gap-3 mb-3">
-                  <div className={`p-2 rounded-lg ${
+                <div className="flex items-start gap-3 justify-between">
+                  <div className={`p-2 rounded-lg shrink-0 ${
                     status === "conforme" ? "bg-emerald-100" :
                     status === "nao_conforme" ? "bg-red-100" :
                     "bg-slate-100"
@@ -7834,7 +7834,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       "text-slate-600"
                     }`} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <span className="text-xs text-slate-400 uppercase">{catInfo?.label}</span>
                     <p className="font-semibold text-slate-800">{item.descricao}</p>
 
@@ -7871,104 +7871,99 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     {item.observacao && (
                       <p className="text-sm text-slate-500 mt-1 italic">"{item.observacao}"</p>
                     )}
-                  </div>
-                </div>
 
-                {/* Conformidade Buttons */}
-                {jaAprovadoAnteriormente ? (
-                  <div className="flex items-center gap-2 mb-3 p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <CheckCircle className="w-5 h-5 text-emerald-600" />
-                    <span className="font-bold text-emerald-700">Já aprovado anteriormente</span>
-                    <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs ml-auto">
-                      Verificado em {ultimoRegistro ? new Date(ultimoRegistro.dataRegistro).toLocaleDateString('pt-BR') : '-'}
-                    </Badge>
+                    {/* Badge "Já aprovado" sutil */}
+                    {jaAprovadoAnteriormente && (
+                      <div className="flex items-center gap-1 mt-1.5">
+                        <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs inline-flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Aprovado em {ultimoRegistro ? new Date(ultimoRegistro.dataRegistro).toLocaleDateString('pt-BR') : '-'}
+                        </Badge>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex gap-2 mb-3">
+
+                  {/* Ícones inline: Conforme / Não Conforme / Foto */}
+                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
                     <button
-                      onClick={() => handleQualCheckItem(item.id, "conforme")}
-                      className={`flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                        status === "conforme"
-                          ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
-                          : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
-                      }`}
+                      disabled={jaAprovadoAnteriormente}
                       data-testid={`button-conforme-${item.id}`}
+                      onClick={() => {
+                        handleQualCheckItem(item.id, "conforme");
+                        setQualObsItemId(item.id);
+                        setQualObsText(item.observacaoQualidade || "");
+                      }}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                        status === "conforme"
+                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/40"
+                          : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
+                      } disabled:opacity-40 disabled:pointer-events-none`}
+                      title="Conforme"
                     >
                       <CheckCircle className="w-5 h-5" />
-                      Conforme
                     </button>
                     <button
-                      onClick={() => handleQualCheckItem(item.id, "nao_conforme")}
-                      className={`flex-1 py-3 px-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
-                        status === "nao_conforme"
-                          ? "bg-red-500 text-white shadow-lg shadow-red-500/30"
-                          : "bg-red-50 text-red-600 hover:bg-red-100"
-                      }`}
+                      disabled={jaAprovadoAnteriormente}
                       data-testid={`button-nao-conforme-${item.id}`}
+                      onClick={() => {
+                        handleQualCheckItem(item.id, "nao_conforme");
+                        setQualObsItemId(item.id);
+                        setQualObsText(item.observacaoQualidade || "");
+                      }}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
+                        status === "nao_conforme"
+                          ? "bg-red-500 text-white shadow-md shadow-red-500/40"
+                          : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
+                      } disabled:opacity-40 disabled:pointer-events-none`}
+                      title="Não Conforme"
                     >
                       <XCircle className="w-5 h-5" />
-                      Não Conforme
                     </button>
-                  </div>
-                )}
-
-                {/* Ações extras: Observação e Foto */}
-                <div className="flex gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    onClick={() => { setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }}
-                    className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
-                      item.observacaoQualidade 
-                        ? "bg-purple-100 text-purple-700" 
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    {item.observacaoQualidade ? "Obs Registrada" : "Observação"}
-                  </button>
-                  <label className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 cursor-pointer transition-all ${
-                    item.fotoQualidade 
-                      ? "bg-blue-100 text-blue-700" 
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}>
-                    <Camera className="w-4 h-4" />
-                    {item.fotoQualidade ? "Foto OK" : "Tirar Foto"}
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      capture="environment"
-                      className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              try {
-                                const res = await fetch("/api/uploads/request-url", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    name: file.name,
-                                    size: file.size,
-                                    contentType: file.type,
-                                  }),
-                                });
-                                const { uploadURL, objectPath } = await res.json();
-
-                                await fetch(uploadURL, {
-                                  method: "PUT",
-                                  body: file,
-                                  headers: { "Content-Type": file.type },
-                                });
-
-                                await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath });
-                                const { data: refreshedList } = await refetchOS();
-                                const updatedOS = refreshedList?.find((os: OS) => os.id === osAtualizada.id);
-                                if (updatedOS) setSelectedOSQual(updatedOS);
-                              } catch (error) {
-                                console.error("Erro ao fazer upload na qualidade:", error);
-                              }
+                    <label
+                      className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all ${
+                        item.fotoQualidade
+                          ? "bg-blue-500 text-white shadow-md shadow-blue-500/40"
+                          : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"
+                      }`}
+                      title="Tirar Foto"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const res = await fetch("/api/uploads/request-url", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  name: file.name,
+                                  size: file.size,
+                                  contentType: file.type,
+                                }),
+                              });
+                              const { uploadURL, objectPath } = await res.json();
+                              await fetch(uploadURL, {
+                                method: "PUT",
+                                body: file,
+                                headers: { "Content-Type": file.type },
+                              });
+                              await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath });
+                              const { data: refreshedList } = await refetchOS();
+                              const updatedOS = refreshedList?.find((os: OS) => os.id === osAtualizada.id);
+                              if (updatedOS) setSelectedOSQual(updatedOS);
+                            } catch (error) {
+                              console.error("Erro ao fazer upload na qualidade:", error);
                             }
-                          }}
-                    />
-                  </label>
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
 
                 {/* Modal de Observação */}
