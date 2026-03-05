@@ -184,7 +184,7 @@ export default function TruckEletricaMap({
     if (hasTroca)  return "#f97316";
     if (hasWrench) return "#3b82f6";
     if (hasStatus) return "#ef4444";
-    return "#C41E3A";
+    return "#2c5aa0";
   };
 
   const handleDot = (id: string) => {

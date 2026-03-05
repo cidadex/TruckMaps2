@@ -289,7 +289,7 @@ export default function TruckEstruturalMap({
               {/* Dots + connector lines to body edges */}
               {points.map((pt) => {
                 const id   = `est-${sr}-${pt.suffix}`;
-                const fill = dotColor(id, pt.defaultRed ? "#C41E3A" : "#2E5090");
+                const fill = dotColor(id, "#2E5090");
                 const cx   = bX + pt.dx;
                 const cy   = bY + pt.dy;
                 return (
