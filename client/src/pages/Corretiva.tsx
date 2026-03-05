@@ -126,53 +126,39 @@ type Step = "home" | "acompanhar" | "nome" | "empresa" | "transportadora" | "con
 function OSTimer({ os }: { os: OS }) {
   const [, setTick] = useState(0);
 
-  // Atualiza a cada segundo
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTick(t => t + 1);
-    }, 1000);
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Calcula tempo total estimado da OS (soma de todos os itens não executados + tempo de retrabalho acumulado)
-  const tempoItensNaoExecutados = os.itens.filter(i => !i.executado).reduce((acc, item) => acc + (item.tempoEstimado || 0), 0);
+  const itensPendentes = os.itens.filter(i => !i.executado);
+  const itensAtivos = itensPendentes.filter(i => !i.aguardandoPeca && !i.aguardandoAprovacao && i.inicioTimer);
+  const itensAguardandoPeca = itensPendentes.filter(i => i.aguardandoPeca);
+  const itensAguardandoAprovacao = itensPendentes.filter(i => i.aguardandoAprovacao);
+
   const tempoRetrabalhoAcumulado = os.tempoRetrabalho || 0;
-  const totalEstimadoMin = tempoItensNaoExecutados + tempoRetrabalhoAcumulado;
-  const totalEstimadoSeg = totalEstimadoMin * 60;
 
-  // Separa os itens por categoria
-  const itensAtivos = os.itens.filter(i => !i.executado && !i.aguardandoPeca && !i.aguardandoAprovacao && i.inicioTimer);
-  const itensAguardandoPeca = os.itens.filter(i => !i.executado && i.aguardandoPeca);
-  const itensAguardandoAprovacao = os.itens.filter(i => !i.executado && i.aguardandoAprovacao);
-
-  // Tempo congelado aguardando peça (soma dos tempos estimados restantes em minutos)
-  const tempoCongeladoPecaMin = itensAguardandoPeca.reduce((acc, item) => {
-    const estimado = item.tempoEstimado || 0;
-    const jaExecutado = item.tempoExecutadoAntesAguardarPeca || 0;
-    return acc + Math.max(0, estimado - jaExecutado);
-  }, 0);
-
-  // Tempo congelado aguardando aprovação (soma dos tempos estimados restantes em minutos)
-  const tempoCongeladoAprovacaoMin = itensAguardandoAprovacao.reduce((acc, item) => {
-    const estimado = item.tempoEstimado || 0;
-    const jaExecutado = item.tempoExecutadoAntesAguardarAprovacao || 0;
-    return acc + Math.max(0, estimado - jaExecutado);
-  }, 0);
-
-  // Tempo ativo estimado (tempo restante dos itens ativos em minutos)
-  const tempoAtivoEstimadoMin = itensAtivos.reduce((acc, item) => acc + (item.tempoEstimado || 0), 0);
-
-  // Calcula tempo decorrido real dos itens ativos (em segundos)
+  const tempoAtivoEstimadoSeg = itensAtivos.reduce((acc, item) => acc + (item.tempoEstimado || 0) * 60, 0);
   const tempoAtivoDecorridoSeg = itensAtivos.reduce((acc, item) => {
     if (!item.inicioTimer) return acc;
-    const pausaTotal = (item.totalPausa || 0) * 1000;
-    const decorrido = Math.floor((Date.now() - item.inicioTimer - pausaTotal) / 1000);
-    return acc + Math.max(0, decorrido);
+    const pausaMs = (item.totalPausa || 0) * 1000;
+    return acc + Math.max(0, Math.floor((Date.now() - item.inicioTimer - pausaMs) / 1000));
+  }, 0);
+  const tempoAtivoRestanteSeg = Math.max(0, tempoAtivoEstimadoSeg - tempoAtivoDecorridoSeg);
+  const tempoAtivoExcedeu = tempoAtivoDecorridoSeg > tempoAtivoEstimadoSeg && tempoAtivoEstimadoSeg > 0;
+  const tempoAtivoExcedidoSeg = tempoAtivoExcedeu ? tempoAtivoDecorridoSeg - tempoAtivoEstimadoSeg : 0;
+
+  const tempoCongeladoPecaMin = itensAguardandoPeca.reduce((acc, item) => {
+    const jaExec = item.tempoExecutadoAntesAguardarPeca || 0;
+    return acc + Math.max(0, (item.tempoEstimado || 0) - jaExec);
   }, 0);
 
-  const tempoAtivoRestanteSeg = Math.max(0, tempoAtivoEstimadoMin * 60 - tempoAtivoDecorridoSeg);
-  const tempoAtivoExcedeu = tempoAtivoDecorridoSeg > tempoAtivoEstimadoMin * 60;
-  const tempoAtivoExcedidoSeg = tempoAtivoExcedeu ? tempoAtivoDecorridoSeg - tempoAtivoEstimadoMin * 60 : 0;
+  const tempoCongeladoAprovacaoMin = itensAguardandoAprovacao.reduce((acc, item) => {
+    const jaExec = item.tempoExecutadoAntesAguardarAprovacao || 0;
+    return acc + Math.max(0, (item.tempoEstimado || 0) - jaExec);
+  }, 0);
+
+  const totalPendenteMin = itensPendentes.reduce((acc, i) => acc + (i.tempoEstimado || 0), 0) + tempoRetrabalhoAcumulado;
 
   const formatTime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -182,73 +168,105 @@ function OSTimer({ os }: { os: OS }) {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const formatMinutes = (min: number) => {
+  const formatMin = (min: number) => {
     const h = Math.floor(min / 60);
     const m = min % 60;
-    if (h > 0) return `${h}h ${m}min`;
-    return `${m}min`;
+    return h > 0 ? `${h}h ${m}min` : `${m}min`;
   };
 
-  if (totalEstimadoMin === 0) return null;
+  const tempoDiagMin = os.inicioDiagnostico && os.fimDiagnostico
+    ? Math.floor((new Date(os.fimDiagnostico).getTime() - new Date(os.inicioDiagnostico).getTime()) / 60000)
+    : null;
+
+  const inicioManutStr = os.inicioManutencao
+    ? new Date(os.inicioManutencao).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  if (totalPendenteMin === 0 && !tempoDiagMin && !inicioManutStr) return null;
 
   return (
     <div className="space-y-2">
-      {/* Tempo Total da OS */}
-      <div className="flex flex-col gap-1 p-3 rounded-xl border-2 bg-slate-50 border-slate-200">
-        <div className="flex items-center justify-between text-xs font-bold uppercase text-slate-500">
-          <span>Tempo Total OS</span>
-          <span>{totalEstimadoMin} min est.</span>
+      {/* Bloco info diagnóstico + início manutenção */}
+      {(tempoDiagMin !== null || inicioManutStr) && (
+        <div className="flex gap-2 flex-wrap">
+          {tempoDiagMin !== null && (
+            <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs">
+              <ClipboardList className="w-3 h-3 text-blue-500" />
+              <span className="text-blue-600 font-bold">Diagnóstico:</span>
+              <span className="text-blue-700 font-black">{formatMin(tempoDiagMin)}</span>
+            </div>
+          )}
+          {inicioManutStr && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs">
+              <Wrench className="w-3 h-3 text-slate-500" />
+              <span className="text-slate-500 font-bold">Manutenção iniciou às</span>
+              <span className="text-slate-700 font-black">{inicioManutStr}</span>
+            </div>
+          )}
         </div>
-        {tempoRetrabalhoAcumulado > 0 && (
-          <div className="text-[10px] text-orange-600 font-medium">
-            (inclui {tempoRetrabalhoAcumulado} min de retrabalho)
-          </div>
-        )}
-      </div>
+      )}
 
-      {/* Grid de tempos separados */}
-      <div className="flex gap-2 flex-wrap">
-        {/* Cronômetro Ativo - tempo restante regressivo */}
-        {tempoAtivoEstimadoMin > 0 && (
-          <div className={`flex flex-col p-2 rounded-lg border flex-1 min-w-[100px] ${tempoAtivoExcedeu ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
-            <span className={`text-[9px] font-bold uppercase ${tempoAtivoExcedeu ? 'text-red-600' : 'text-emerald-600'}`}>Em Execução</span>
-            <div className={`flex items-center gap-1 text-sm font-black ${tempoAtivoExcedeu ? 'text-red-700' : 'text-emerald-700'}`}>
-              <Timer className="w-3 h-3" />
-              {tempoAtivoExcedeu ? (
-                <span>+{formatTime(tempoAtivoExcedidoSeg)}</span>
-              ) : (
-                <span>{formatTime(tempoAtivoRestanteSeg)}</span>
+      {totalPendenteMin > 0 && (
+        <>
+          {/* Countdown global proeminente */}
+          <div className={`rounded-xl border-2 p-3 ${tempoAtivoExcedeu ? 'bg-red-50 border-red-300' : 'bg-emerald-50 border-emerald-300'}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className={`text-[9px] font-black uppercase tracking-widest ${tempoAtivoExcedeu ? 'text-red-500' : 'text-emerald-600'}`}>
+                {tempoAtivoExcedeu ? 'TEMPO EXCEDIDO' : 'TEMPO FALTANDO'}
+              </span>
+              <span className="text-[9px] text-slate-400 font-bold">{formatMin(totalPendenteMin)} estimado</span>
+            </div>
+            <div className={`flex items-center gap-2 ${tempoAtivoExcedeu ? 'text-red-700' : 'text-emerald-700'}`}>
+              <Timer className="w-5 h-5" />
+              <span className={`text-2xl font-black tabular-nums ${tempoAtivoExcedeu ? 'text-red-700' : 'text-emerald-700'}`}>
+                {tempoAtivoExcedeu ? `+${formatTime(tempoAtivoExcedidoSeg)}` : formatTime(tempoAtivoRestanteSeg)}
+              </span>
+              {tempoRetrabalhoAcumulado > 0 && (
+                <span className="text-[10px] text-orange-600 font-bold ml-auto">+{tempoRetrabalhoAcumulado}min retrabalho</span>
               )}
             </div>
           </div>
-        )}
 
-        {/* Tempo Congelado Aguardando Peça - só mostra se tem itens aguardando */}
-        {itensAguardandoPeca.length > 0 && (
-          <div className="flex flex-col p-2 rounded-lg bg-amber-50 border border-amber-200 flex-1 min-w-[100px]">
-            <span className="text-[9px] font-bold text-amber-600 uppercase flex items-center gap-1">
-              <Lock className="w-2 h-2" /> Aguard. Peça
-            </span>
-            <div className="flex items-center gap-1 text-sm font-black text-amber-700">
-              <Package className="w-3 h-3" />
-              <span>{formatMinutes(tempoCongeladoPecaMin)}</span>
-            </div>
+          {/* Sub-blocos: Em Execução / Peça / Aprovação */}
+          <div className="flex gap-2 flex-wrap">
+            {itensAtivos.length > 0 && (
+              <div className={`flex flex-col p-2 rounded-lg border flex-1 min-w-[90px] ${tempoAtivoExcedeu ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <span className={`text-[9px] font-bold uppercase ${tempoAtivoExcedeu ? 'text-red-600' : 'text-emerald-600'}`}>
+                  Em Execução ({itensAtivos.length})
+                </span>
+                <div className={`flex items-center gap-1 text-sm font-black ${tempoAtivoExcedeu ? 'text-red-700' : 'text-emerald-700'}`}>
+                  <Timer className="w-3 h-3" />
+                  <span className="tabular-nums">
+                    {tempoAtivoExcedeu ? `+${formatTime(tempoAtivoExcedidoSeg)}` : formatTime(tempoAtivoRestanteSeg)}
+                  </span>
+                </div>
+              </div>
+            )}
+            {itensAguardandoPeca.length > 0 && (
+              <div className="flex flex-col p-2 rounded-lg bg-amber-50 border border-amber-200 flex-1 min-w-[90px]">
+                <span className="text-[9px] font-bold text-amber-600 uppercase flex items-center gap-1">
+                  <Lock className="w-2 h-2" /> Peça ({itensAguardandoPeca.length})
+                </span>
+                <div className="flex items-center gap-1 text-sm font-black text-amber-700">
+                  <Package className="w-3 h-3" />
+                  <span>{formatMin(tempoCongeladoPecaMin)}</span>
+                </div>
+              </div>
+            )}
+            {itensAguardandoAprovacao.length > 0 && (
+              <div className="flex flex-col p-2 rounded-lg bg-purple-50 border border-purple-200 flex-1 min-w-[90px]">
+                <span className="text-[9px] font-bold text-purple-600 uppercase flex items-center gap-1">
+                  <Lock className="w-2 h-2" /> Aprov. ({itensAguardandoAprovacao.length})
+                </span>
+                <div className="flex items-center gap-1 text-sm font-black text-purple-700">
+                  <ShieldCheck className="w-3 h-3" />
+                  <span>{formatMin(tempoCongeladoAprovacaoMin)}</span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-
-        {/* Tempo Congelado Aguardando Aprovação - só mostra se tem itens aguardando */}
-        {itensAguardandoAprovacao.length > 0 && (
-          <div className="flex flex-col p-2 rounded-lg bg-purple-50 border border-purple-200 flex-1 min-w-[100px]">
-            <span className="text-[9px] font-bold text-purple-600 uppercase flex items-center gap-1">
-              <Lock className="w-2 h-2" /> Aguard. Aprov.
-            </span>
-            <div className="flex items-center gap-1 text-sm font-black text-purple-700">
-              <ShieldCheck className="w-3 h-3" />
-              <span>{formatMinutes(tempoCongeladoAprovacaoMin)}</span>
-            </div>
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -690,7 +708,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
     try {
       await updateOSItem(osId, itemId, {
         tempoEstimado: tempo > 0 ? tempo : null,
-        inicioTimer: tempo > 0 ? Date.now() : null
       });
 
       await refetchOS();
@@ -821,7 +838,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               descricao: descricaoFinal,
               acao,
               tempoEstimado: tempo,
-              inicioTimer: Date.now()
             });
           }
         } catch (e) {
@@ -833,9 +849,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
       const { data: refreshedList } = await refetchOS();
       const currentOS = refreshedList?.find((o: OS) => o.id === osId) || os;
 
+      const agora = Date.now();
       for (const item of currentOS.itens) {
-        if (!item.inicioTimer && item.tempoEstimado && item.tempoEstimado > 0) {
-          await updateOSItem(osId, item.id, { inicioTimer: Date.now() });
+        if (item.tempoEstimado && item.tempoEstimado > 0) {
+          await updateOSItem(osId, item.id, { inicioTimer: agora, totalPausa: 0 });
         }
       }
 
@@ -5930,13 +5947,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                 </div>
                               )}
                               {/* Cronômetro Individual do Item */}
-                              {item.inicioTimer && !item.executado && !item.aguardandoPeca && !item.aguardandoAprovacao && (() => {
-                                const pausaTotal = (item.totalPausa || 0) * 1000;
-                                const decorrido = Math.floor((Date.now() - item.inicioTimer - pausaTotal) / 1000);
-                                const estimadoSeg = (item.tempoEstimado || 0) * 60;
-                                const restante = Math.max(0, estimadoSeg - decorrido);
-                                const excedeu = decorrido > estimadoSeg;
-                                const excedido = decorrido - estimadoSeg;
+                              {!item.executado && (() => {
                                 const formatT = (s: number) => {
                                   const h = Math.floor(s / 3600);
                                   const m = Math.floor((s % 3600) / 60);
@@ -5944,17 +5955,51 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                   if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
                                   return `${m}:${ss.toString().padStart(2, '0')}`;
                                 };
-                                return (
-                                  <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 ${excedeu ? 'bg-red-50 border border-red-200' : 'bg-emerald-50 border border-emerald-200'}`}>
-                                    <Timer className={`w-4 h-4 ${excedeu ? 'text-red-600' : 'text-emerald-600'}`} />
-                                    <span className={`text-sm font-black ${excedeu ? 'text-red-700' : 'text-emerald-700'}`}>
-                                      {excedeu ? `+${formatT(excedido)}` : formatT(restante)}
-                                    </span>
-                                    <span className={`text-xs ${excedeu ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      {excedeu ? 'excedido' : 'restante'}
-                                    </span>
-                                  </div>
-                                );
+                                if (item.aguardandoPeca) {
+                                  const restMin = Math.max(0, (item.tempoEstimado || 0) - (item.tempoExecutadoAntesAguardarPeca || 0));
+                                  return (
+                                    <div className="mt-2 p-2 rounded-lg flex items-center gap-2 bg-amber-50 border border-amber-200">
+                                      <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                                      <span className="text-xs font-black text-amber-700">AGUARD. PEÇA</span>
+                                      <span className="text-xs text-amber-600">cronômetro congelado</span>
+                                      {restMin > 0 && <span className="text-xs font-bold text-amber-800 ml-auto">{restMin}min restantes</span>}
+                                    </div>
+                                  );
+                                }
+                                if (item.aguardandoAprovacao) {
+                                  const restMin = Math.max(0, (item.tempoEstimado || 0) - (item.tempoExecutadoAntesAguardarAprovacao || 0));
+                                  return (
+                                    <div className="mt-2 p-2 rounded-lg flex items-center gap-2 bg-purple-50 border border-purple-200">
+                                      <Lock className="w-4 h-4 text-purple-600 shrink-0" />
+                                      <span className="text-xs font-black text-purple-700">AGUARD. APROVAÇÃO</span>
+                                      <span className="text-xs text-purple-600">cronômetro congelado</span>
+                                      {restMin > 0 && <span className="text-xs font-bold text-purple-800 ml-auto">{restMin}min restantes</span>}
+                                    </div>
+                                  );
+                                }
+                                if (item.inicioTimer) {
+                                  const pausaMs = (item.totalPausa || 0) * 1000;
+                                  const decorrido = Math.floor((Date.now() - item.inicioTimer - pausaMs) / 1000);
+                                  const estimadoSeg = (item.tempoEstimado || 0) * 60;
+                                  const restante = Math.max(0, estimadoSeg - decorrido);
+                                  const excedeu = estimadoSeg > 0 && decorrido > estimadoSeg;
+                                  const excedido = excedeu ? decorrido - estimadoSeg : 0;
+                                  return (
+                                    <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 border ${excedeu ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                                      <Timer className={`w-4 h-4 shrink-0 ${excedeu ? 'text-red-600' : 'text-emerald-600'}`} />
+                                      <span className={`text-base font-black tabular-nums ${excedeu ? 'text-red-700' : 'text-emerald-700'}`}>
+                                        {excedeu ? `+${formatT(excedido)}` : formatT(restante)}
+                                      </span>
+                                      <span className={`text-xs ${excedeu ? 'text-red-500' : 'text-emerald-500'}`}>
+                                        {excedeu ? 'excedido' : 'restante'}
+                                      </span>
+                                      {item.tempoEstimado && (
+                                        <span className="text-[10px] text-slate-400 ml-auto">{item.tempoEstimado}min est.</span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return null;
                               })()}
                               {/* Observação da Qualidade (retrabalho) */}
                               {item.observacaoQualidade && (
@@ -8293,19 +8338,24 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
   if (step === "laudo_detalhe" && selectedOSLaudo) {
     const os = osList.find(o => o.id === selectedOSLaudo.id) || selectedOSLaudo;
 
-    // Início da Manutenção = quando o diagnóstico finaliza (fimDiagnostico)
-    // Fim da Manutenção = quando a qualidade valida tudo (dataFinalizacao)
-    const inicioManut = os.fimDiagnostico ? new Date(os.fimDiagnostico) : null;
+    // Contagem 1: Total na Oficina (Abertura → Encerramento)
+    const tempoOficinaMin = os.dataFinalizacao 
+      ? Math.floor((new Date(os.dataFinalizacao).getTime() - new Date(os.dataCriacao).getTime()) / 60000)
+      : 0;
+
+    // Contagem 2: Tempo de Diagnóstico
+    const tempoDiagnosticoMinutos = os.inicioDiagnostico && os.fimDiagnostico 
+      ? Math.floor((new Date(os.fimDiagnostico).getTime() - new Date(os.inicioDiagnostico).getTime()) / 60000)
+      : 0;
+
+    // Contagem 3: Tempo de Manutenção (fimDiagnostico → dataFinalizacao)
+    const inicioManut = os.inicioManutencao ? new Date(os.inicioManutencao) : (os.fimDiagnostico ? new Date(os.fimDiagnostico) : null);
     const fimManut = os.dataFinalizacao ? new Date(os.dataFinalizacao) : null;
     const tempoManutencaoMinutos = inicioManut && fimManut 
       ? Math.floor((fimManut.getTime() - inicioManut.getTime()) / 60000)
       : 0;
     const tempoManutHoras = Math.floor(tempoManutencaoMinutos / 60);
     const tempoManutMinutos = tempoManutencaoMinutos % 60;
-
-    const tempoDiagnosticoMinutos = os.inicioDiagnostico && os.fimDiagnostico 
-      ? Math.floor((new Date(os.fimDiagnostico).getTime() - new Date(os.inicioDiagnostico).getTime()) / 60000)
-      : 0;
 
     const formatarMinutos = (totalMin: number) => {
       if (totalMin <= 0) return "0m";
@@ -8320,11 +8370,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
       return acc + (tempoItem / 60);
     }, 0);
 
-    const tempoPecaMin = os.itens.reduce((acc, item) => acc + ((item.totalPausa || 0) / 60), 0);
-
-    const tempoOficinaMin = os.dataFinalizacao 
-      ? (new Date(os.dataFinalizacao).getTime() - new Date(os.dataCriacao).getTime()) / 60000 
-      : 0;
+    const tempoPecaMin = os.itens.reduce((acc, item) => acc + (item.tempoTotalAguardandoPeca || 0), 0);
+    const tempoAprovMin = os.itens.reduce((acc, item) => acc + (item.tempoTotalAguardandoAprovacao || 0), 0);
 
     const tecnicosManutencao = Array.from(new Set(os.itens.filter(i => i.executadoPorNome).map(i => i.executadoPorNome)));
 
@@ -8392,6 +8439,49 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 </div>
               </div>
 
+              {/* RESUMO DE TEMPOS - 3 contagens */}
+              <div className="px-6 py-4 border-b border-slate-100">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 border-l-2 border-primary pl-2">Resumo de Tempos</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  {/* Contagem 1 */}
+                  <div className="bg-slate-800 text-white rounded-xl p-3 text-center">
+                    <span className="text-[9px] text-slate-300 font-bold uppercase block mb-1">Total na Oficina</span>
+                    <span className="text-[9px] text-slate-400 block mb-1">Abertura → Encerramento</span>
+                    <span className="text-xl font-black block">{formatarMinutos(tempoOficinaMin)}</span>
+                    {os.dataCriacao && (
+                      <span className="text-[8px] text-slate-400 block mt-1">
+                        {new Date(os.dataCriacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        {os.dataFinalizacao && ` → ${new Date(os.dataFinalizacao).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                      </span>
+                    )}
+                  </div>
+                  {/* Contagem 2 */}
+                  <div className="bg-blue-600 text-white rounded-xl p-3 text-center">
+                    <span className="text-[9px] text-blue-100 font-bold uppercase block mb-1">Diagnóstico Técnico</span>
+                    <span className="text-[9px] text-blue-200 block mb-1">Entrada → Liberação</span>
+                    <span className="text-xl font-black block">
+                      {tempoDiagnosticoMinutos > 0 ? formatarMinutos(tempoDiagnosticoMinutos) : '-'}
+                    </span>
+                    {os.responsavelDiagnosticoNome && (
+                      <span className="text-[8px] text-blue-200 block mt-1">por {os.responsavelDiagnosticoNome}</span>
+                    )}
+                  </div>
+                  {/* Contagem 3 */}
+                  <div className="bg-emerald-600 text-white rounded-xl p-3 text-center">
+                    <span className="text-[9px] text-emerald-100 font-bold uppercase block mb-1">Manutenção</span>
+                    <span className="text-[9px] text-emerald-200 block mb-1">Início → Aprovação Final</span>
+                    <span className="text-xl font-black block">
+                      {tempoManutencaoMinutos > 0 ? formatarMinutos(tempoManutencaoMinutos) : '-'}
+                    </span>
+                    {inicioManut && (
+                      <span className="text-[8px] text-emerald-200 block mt-1">
+                        {inicioManut.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* PERÍODO DA MANUTENÇÃO - Barra Verde */}
               <div className="px-6 py-4 border-b border-slate-100">
                 <div className="bg-emerald-500 text-white rounded-xl p-4">
@@ -8448,7 +8538,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   </div>
                   <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
                     <span className="text-[8px] text-purple-500 font-bold uppercase block">Aguard. Aprov.</span>
-                    <span className="text-sm font-black text-purple-600">0m</span>
+                    <span className="text-sm font-black text-purple-600">{formatarMinutos(tempoAprovMin)}</span>
                   </div>
                   <div className="bg-slate-50 p-2 rounded-lg text-center border border-slate-100">
                     <span className="text-[8px] text-emerald-500 font-bold uppercase block">Tempo Trabalho</span>
@@ -8493,6 +8583,38 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                           )}
                         </div>
 
+                        {/* Tempos do Item */}
+                        <div className="px-3 py-2 border-t border-slate-100 bg-slate-50">
+                          <div className="flex flex-wrap gap-2">
+                            {item.tempoEstimado && item.tempoEstimado > 0 && (
+                              <span className="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold">
+                                Est.: {item.tempoEstimado}min
+                              </span>
+                            )}
+                            {item.tempoTotalAguardandoPeca && item.tempoTotalAguardandoPeca > 0 ? (
+                              <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold">
+                                Aguard. Peça: {item.tempoTotalAguardandoPeca}min
+                              </span>
+                            ) : null}
+                            {item.tempoTotalAguardandoAprovacao && item.tempoTotalAguardandoAprovacao > 0 ? (
+                              <span className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold">
+                                Aguard. Aprov.: {item.tempoTotalAguardandoAprovacao}min
+                              </span>
+                            ) : null}
+                            {(() => {
+                              const histExec = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "execucao");
+                              const totalSeg = histExec.reduce((sum, h) => sum + (h.tempoGasto || 0), 0);
+                              if (totalSeg <= 0) return null;
+                              const totalMin = Math.round(totalSeg / 60);
+                              return (
+                                <span className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">
+                                  Exec. real: {totalMin}min
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </div>
+
                         {/* Histórico de Execuções - Simplificado */}
                         {(execucoes.length > 0 || qualidades.length > 0) && (
                           <div className="px-3 py-2 border-t border-slate-200 bg-white">
@@ -8506,6 +8628,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                   <div>
                                     <span className="font-bold text-amber-800">Manutenção #{idx + 1}</span>
                                     <p className="text-slate-600">Técnico: <span className="font-bold">{exec.executadoPorNome || "-"}</span></p>
+                                    {exec.tempoGasto && exec.tempoGasto > 0 && (
+                                      <p className="text-slate-500">Tempo gasto: <span className="font-bold">{Math.round(exec.tempoGasto / 60)}min</span></p>
+                                    )}
                                   </div>
                                 </div>
                               ))}
