@@ -7642,28 +7642,123 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           <OSTimer os={osAtualizada} />
         </div>
 
+        {/* Scrollable content: maps com verificação de qualidade inline */}
+        <div className="flex-1 overflow-y-auto pb-36">
+
+        {/* Mapa de Borracharia */}
+        {osAtualizada.tipoConjunto && (() => {
+          try {
+            const rodasObjBorr: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
+            const hasBorrPoints = Object.keys(rodasObjBorr).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
+            const borrItems = osAtualizada.itens.filter(i => i.categoria === "borracharia");
+            if (!hasBorrPoints && borrItems.length === 0) return null;
+            return (
+              <div className="px-4 pt-2">
+                <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
+                  {hasBorrPoints && (
+                    <TruckBorrachariaMap
+                      tipo={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
+                      rodas={rodasObjBorr}
+                      placas={{ cavalo: osAtualizada.placa, sr1: osAtualizada.placa2 || "", sr2: osAtualizada.tipoConjunto === "tritrem" ? (osAtualizada.placa3 || "") : (osAtualizada.placa2 || ""), sr3: osAtualizada.tipoConjunto === "tritrem" ? (osAtualizada.placa3 || "") : undefined }}
+                      onWheelClick={() => {}}
+                      readOnly={true}
+                    />
+                  )}
+                  {borrItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {borrItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                        const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">
+                              {pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}
+                              <p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>
+                              {item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}
+                              {item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}
+                            </div>
+                            {jaAprov ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge>
+                            ) : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          } catch { return null; }
+        })()}
+
         {/* Mapa Mecânico - Visualização dos pontos diagnosticados */}
         {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasMechPoints = Object.keys(rodasObj).some(k => k.startsWith("sr") && k.includes("-p"));
-            if (!hasMechPoints) return null;
+            const mechItems = osAtualizada.itens.filter(i => i.categoria === "mecanica");
+            if (!hasMechPoints && mechItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
-                  <TruckMecanicaMap
-                    tipo={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
-                    rodas={rodasObj}
-                    placas={{
-                      cavalo: osAtualizada.placa,
-                      sr1: osAtualizada.placa2 || "",
-                      sr2: osAtualizada.tipoConjunto === "tritrem" ? (osAtualizada.placa3 || "") : (osAtualizada.placa2 || ""),
-                      sr3: osAtualizada.tipoConjunto === "tritrem" ? (osAtualizada.placa3 || "") : undefined,
-                    }}
-                    onPointClick={() => {}}
-                    onPointClear={() => {}}
-                    readOnly={true}
-                  />
+                  {hasMechPoints && (
+                    <TruckMecanicaMap
+                      tipo={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
+                      rodas={rodasObj}
+                      placas={{
+                        cavalo: osAtualizada.placa,
+                        sr1: osAtualizada.placa2 || "",
+                        sr2: osAtualizada.tipoConjunto === "tritrem" ? (osAtualizada.placa3 || "") : (osAtualizada.placa2 || ""),
+                        sr3: osAtualizada.tipoConjunto === "tritrem" ? (osAtualizada.placa3 || "") : undefined,
+                      }}
+                      onPointClick={() => {}}
+                      onPointClear={() => {}}
+                      readOnly={true}
+                    />
+                  )}
+                  {mechItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {mechItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                        const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">
+                              {pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}
+                              <p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>
+                              {item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}
+                              {item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}
+                            </div>
+                            {jaAprov ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge>
+                            ) : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -7674,17 +7769,37 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-"));
-            if (!hasCatracasPoints) return null;
+            const catrItems = osAtualizada.itens.filter(i => i.categoria === "catracas");
+            if (!hasCatracasPoints && catrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa de Catracas</h4>
-                  <TruckCatracasMap
-                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
-                    rodas={rodasObj}
-                    onPointClick={() => {}}
-                    readOnly={true}
-                  />
+                  {hasCatracasPoints && <TruckCatracasMap tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"} rodas={rodasObj} onPointClick={() => {}} readOnly={true} />}
+                  {catrItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {catrItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
+                            {jaAprov ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge> : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -7695,17 +7810,37 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-"));
-            if (!hasQuintaRodaPoints) return null;
+            const qrItems = osAtualizada.itens.filter(i => i.categoria === "quinta_roda");
+            if (!hasQuintaRodaPoints && qrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa de 5ª Roda</h4>
-                  <TruckQuintaRodaMap
-                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
-                    rodas={rodasObj}
-                    onPointClick={() => {}}
-                    readOnly={true}
-                  />
+                  {hasQuintaRodaPoints && <TruckQuintaRodaMap tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"} rodas={rodasObj} onPointClick={() => {}} readOnly={true} />}
+                  {qrItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {qrItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
+                            {jaAprov ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge> : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -7716,26 +7851,41 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj: Record<string, string> = (() => {
               const parsed: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
-              if (!Object.keys(parsed).some(k => k.startsWith("ele-"))) {
-                osAtualizada.itens.filter(i => i.categoria === "eletrica").forEach(item => {
-                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
-                  if (match) parsed[match[1]] = match[2];
-                });
-              }
+              if (!Object.keys(parsed).some(k => k.startsWith("ele-"))) { osAtualizada.itens.filter(i => i.categoria === "eletrica").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
               return parsed;
             })();
             const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
-            if (!hasEletricaPoints) return null;
+            const eleItems = osAtualizada.itens.filter(i => i.categoria === "eletrica");
+            if (!hasEletricaPoints && eleItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa Elétrica</h4>
-                  <TruckEletricaMap
-                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
-                    rodas={rodasObj}
-                    onPointClick={() => {}}
-                    readOnly={true}
-                  />
+                  {hasEletricaPoints && <TruckEletricaMap tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"} rodas={rodasObj} onPointClick={() => {}} readOnly={true} />}
+                  {eleItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {eleItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
+                            {jaAprov ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge> : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -7746,26 +7896,41 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj: Record<string, string> = (() => {
               const parsed: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
-              if (!Object.keys(parsed).some(k => k.startsWith("est-"))) {
-                osAtualizada.itens.filter(i => i.categoria === "estrutural").forEach(item => {
-                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
-                  if (match) parsed[match[1]] = match[2];
-                });
-              }
+              if (!Object.keys(parsed).some(k => k.startsWith("est-"))) { osAtualizada.itens.filter(i => i.categoria === "estrutural").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
               return parsed;
             })();
             const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
-            if (!hasEstruturalPoints) return null;
+            const estItems = osAtualizada.itens.filter(i => i.categoria === "estrutural");
+            if (!hasEstruturalPoints && estItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa Estrutural</h4>
-                  <TruckEstruturalMap
-                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
-                    rodas={rodasObj}
-                    onPointClick={() => {}}
-                    readOnly={true}
-                  />
+                  {hasEstruturalPoints && <TruckEstruturalMap tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"} rodas={rodasObj} onPointClick={() => {}} readOnly={true} />}
+                  {estItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {estItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
+                            {jaAprov ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge> : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -7776,268 +7941,93 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj: Record<string, string> = (() => {
               const parsed: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
-              if (!Object.keys(parsed).some(k => k.startsWith("pneu-"))) {
-                osAtualizada.itens.filter(i => i.categoria === "pneumatica").forEach(item => {
-                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
-                  if (match) parsed[match[1]] = match[2];
-                });
-              }
+              if (!Object.keys(parsed).some(k => k.startsWith("pneu-"))) { osAtualizada.itens.filter(i => i.categoria === "pneumatica").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
               return parsed;
             })();
             const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-"));
-            if (!hasPneumaticaPoints) return null;
+            const pneuItems = osAtualizada.itens.filter(i => i.categoria === "pneumatica");
+            if (!hasPneumaticaPoints && pneuItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
                 <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Mapa Pneumático</h4>
-                  <TruckPneumaticaMap
-                    tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"}
-                    rodas={rodasObj}
-                    onPointClick={() => {}}
-                    readOnly={true}
-                  />
+                  {hasPneumaticaPoints && <TruckPneumaticaMap tipoConjunto={osAtualizada.tipoConjunto as "bitrem" | "tritrem"} rodas={rodasObj} onPointClick={() => {}} readOnly={true} />}
+                  {pneuItems.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-teal-200 space-y-1.5">
+                      <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                      {pneuItems.map(item => {
+                        const status = qualChecklist[item.id];
+                        const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                        const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                        const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        return (
+                          <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                            <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
+                            {jaAprov ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge> : (
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                                <label className={`w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all ${item.fotoQualidade ? "bg-blue-500 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"}`}><Camera className="w-3.5 h-3.5" /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={async (e) => { const file = e.target.files?.[0]; if (file) { try { const res = await fetch("/api/uploads/request-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const { uploadURL, objectPath } = await res.json(); await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath }); const { data: rL } = await refetchOS(); const uOS = rL?.find((os: OS) => os.id === osAtualizada.id); if (uOS) setSelectedOSQual(uOS); } catch (err) { console.error("Erro upload qualidade:", err); } } }} /></label>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
           } catch { return null; }
         })()}
 
-        {/* Itens List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-32">
-          {osAtualizada.itens.map((item) => {
-            const catInfo = CATEGORIAS.find(c => c.id === item.categoria);
-            const Icon = catInfo?.icon || Wrench;
-            const status = qualChecklist[item.id];
+        {/* Observação Geral - dentro do wrapper scrollável */}
+        <div className="px-4 pt-3 pb-2">
+          <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+            <label className="text-xs font-bold text-slate-700 mb-2 block uppercase">Observação Geral da Inspeção</label>
+            <Textarea
+              value={qualObsGeral}
+              onChange={(e) => setQualObsGeral(e.target.value)}
+              placeholder="Observações gerais sobre a verificação de qualidade..."
+              className="bg-white text-sm"
+              rows={3}
+            />
+          </div>
+        </div>
 
-            // Verificar se este item já foi aprovado anteriormente (conforme no histórico E executado)
-            const historicoItem = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
-            const ultimoRegistro = historicoItem.length > 0 
-              ? historicoItem.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0]
-              : null;
-            const jaAprovadoAnteriormente = ultimoRegistro?.resultado === "conforme" && item.executado;
+        </div> {/* end flex-1 overflow-y-auto */}
 
-            return (
-              <Card key={item.id} className={`p-4 bg-white shadow-sm ${
-                status === "conforme" ? "border-l-4 border-l-emerald-500" :
-                status === "nao_conforme" ? "border-l-4 border-l-red-500" :
-                "border-l-4 border-l-slate-300"
-              } ${jaAprovadoAnteriormente ? "opacity-80" : ""}`}>
-                <div className="flex items-start gap-3 justify-between">
-                  <div className={`p-2 rounded-lg shrink-0 ${
-                    status === "conforme" ? "bg-emerald-100" :
-                    status === "nao_conforme" ? "bg-red-100" :
-                    "bg-slate-100"
-                  }`}>
-                    <Icon className={`w-5 h-5 ${
-                      status === "conforme" ? "text-emerald-600" :
-                      status === "nao_conforme" ? "text-red-600" :
-                      "text-slate-600"
-                    }`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs text-slate-400 uppercase">{catInfo?.label}</span>
-                    <p className="font-semibold text-slate-800">{item.descricao}</p>
-
-                    {/* Info do Diagnóstico */}
-                    {(item.item || item.acao) && (
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {item.item && (
-                          <Badge className="bg-blue-100 text-blue-700 border-0 text-xs">
-                            {item.item === "Outros" && item.descricaoCustom ? item.descricaoCustom : item.item}
-                          </Badge>
-                        )}
-                        {item.acao && (
-                          <Badge className={`border-0 text-xs ${
-                            item.acao === "ajustar" ? "bg-blue-500 text-white" :
-                            item.acao === "soldar" ? "bg-orange-500 text-white" :
-                            "bg-red-500 text-white"
-                          }`}>
-                            {item.acao === "ajustar" ? "Ajustar" : item.acao === "soldar" ? "Soldar" : "Trocar"}
-                          </Badge>
-                        )}
-                        {item.executado && (
-                          <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">
-                            Executado
-                          </Badge>
-                        )}
-                        {item.tempoEstimado && item.tempoEstimado > 0 && (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">
-                            {item.tempoEstimado} min
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-
-                    {item.observacao && (
-                      <p className="text-sm text-slate-500 mt-1 italic">"{item.observacao}"</p>
-                    )}
-
-                    {/* Badge "Já aprovado" sutil */}
-                    {jaAprovadoAnteriormente && (
-                      <div className="flex items-center gap-1 mt-1.5">
-                        <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs inline-flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" />
-                          Aprovado em {ultimoRegistro ? new Date(ultimoRegistro.dataRegistro).toLocaleDateString('pt-BR') : '-'}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Ícones inline: Conforme / Não Conforme / Foto */}
-                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <button
-                      disabled={jaAprovadoAnteriormente}
-                      data-testid={`button-conforme-${item.id}`}
-                      onClick={() => {
-                        handleQualCheckItem(item.id, "conforme");
-                        setQualObsItemId(item.id);
-                        setQualObsText(item.observacaoQualidade || "");
-                      }}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                        status === "conforme"
-                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/40"
-                          : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"
-                      } disabled:opacity-40 disabled:pointer-events-none`}
-                      title="Conforme"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </button>
-                    <button
-                      disabled={jaAprovadoAnteriormente}
-                      data-testid={`button-nao-conforme-${item.id}`}
-                      onClick={() => {
-                        handleQualCheckItem(item.id, "nao_conforme");
-                        setQualObsItemId(item.id);
-                        setQualObsText(item.observacaoQualidade || "");
-                      }}
-                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                        status === "nao_conforme"
-                          ? "bg-red-500 text-white shadow-md shadow-red-500/40"
-                          : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"
-                      } disabled:opacity-40 disabled:pointer-events-none`}
-                      title="Não Conforme"
-                    >
-                      <XCircle className="w-5 h-5" />
-                    </button>
-                    <label
-                      className={`w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all ${
-                        item.fotoQualidade
-                          ? "bg-blue-500 text-white shadow-md shadow-blue-500/40"
-                          : "bg-slate-100 text-slate-500 hover:bg-slate-200 border border-slate-200"
-                      }`}
-                      title="Tirar Foto"
-                    >
-                      <Camera className="w-4 h-4" />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            try {
-                              const res = await fetch("/api/uploads/request-url", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  name: file.name,
-                                  size: file.size,
-                                  contentType: file.type,
-                                }),
-                              });
-                              const { uploadURL, objectPath } = await res.json();
-                              await fetch(uploadURL, {
-                                method: "PUT",
-                                body: file,
-                                headers: { "Content-Type": file.type },
-                              });
-                              await updateOSItem(osAtualizada.id, item.id, { fotoQualidade: objectPath });
-                              const { data: refreshedList } = await refetchOS();
-                              const updatedOS = refreshedList?.find((os: OS) => os.id === osAtualizada.id);
-                              if (updatedOS) setSelectedOSQual(updatedOS);
-                            } catch (error) {
-                              console.error("Erro ao fazer upload na qualidade:", error);
-                            }
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
+        {/* Modal global de observação (para itens dos mapas) */}
+        {qualObsItemId !== null && (() => {
+          const obsItem = osAtualizada.itens.find(i => i.id === qualObsItemId);
+          if (!obsItem) return null;
+          return (
+            <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setQualObsItemId(null)}>
+              <div className="w-full bg-white rounded-t-2xl p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-4" />
+                <p className="text-xs font-bold text-slate-500 uppercase mb-1">Observação do Item</p>
+                <p className="text-sm font-semibold text-slate-800 mb-3 truncate">{obsItem.descricao}</p>
+                <Textarea
+                  value={qualObsText}
+                  onChange={(e) => setQualObsText(e.target.value)}
+                  placeholder="Descreva a observação da verificação..."
+                  className="bg-slate-50 mb-3 text-sm"
+                  rows={3}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <button onClick={() => { setQualObsItemId(null); setQualObsText(""); }} className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold text-sm">
+                    Cancelar
+                  </button>
+                  <button onClick={() => { handleQualSaveItemObs(osAtualizada.id, qualObsItemId, qualObsText); setQualObsItemId(null); setQualObsText(""); }} className="flex-1 py-3 bg-purple-500 text-white rounded-xl font-bold text-sm">
+                    Salvar Obs
+                  </button>
                 </div>
-
-                {/* Modal de Observação */}
-                {qualObsItemId === item.id && (
-                  <div className="mt-3 p-3 bg-purple-50 rounded-xl border border-purple-200">
-                    <label className="text-xs font-bold text-purple-700 mb-2 block uppercase">Observação da Verificação</label>
-                    <Textarea
-                      value={qualObsText}
-                      onChange={(e) => setQualObsText(e.target.value)}
-                      placeholder="Descreva a observação..."
-                      className="bg-white mb-2 text-sm"
-                      rows={3}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setQualObsItemId(null); setQualObsText(""); }}
-                        className="flex-1 py-2 bg-slate-200 text-slate-700 rounded-lg font-bold text-sm"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => { 
-                          handleQualSaveItemObs(osAtualizada.id, item.id, qualObsText);
-                          setQualObsItemId(null);
-                          setQualObsText("");
-                        }}
-                        className="flex-1 py-2 bg-purple-500 text-white rounded-lg font-bold text-sm"
-                      >
-                        Salvar
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Exibir Fotos - Diagnóstico e Qualidade */}
-                {(item.fotoDiagnostico || item.fotoQualidade) && qualObsItemId !== item.id && (
-                  <div className="mt-3 p-2 bg-slate-50 rounded-xl space-y-2">
-                    {item.fotoDiagnostico && (
-                      <div>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">Foto Diagnóstico:</span>
-                        <img src={item.fotoDiagnostico} alt="Foto diagnóstico" className="w-full h-28 object-cover rounded-lg mt-1" />
-                      </div>
-                    )}
-                    {item.fotoQualidade && (
-                      <div>
-                        <span className="text-[9px] text-slate-400 font-bold uppercase">Foto Qualidade:</span>
-                        <img src={item.fotoQualidade} alt="Foto qualidade" className="w-full h-28 object-cover rounded-lg mt-1" />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Exibir Observação Qualidade existente */}
-                {item.observacaoQualidade && qualObsItemId !== item.id && (
-                  <div className="mt-2 p-2 bg-purple-50 rounded-lg">
-                    <p className="text-xs text-purple-700 italic">"{item.observacaoQualidade}"</p>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Observação Geral */}
-        <div className="p-4 bg-slate-50 border-t border-b">
-          <label className="text-xs font-bold text-slate-700 mb-2 block uppercase">Observação Geral da Inspeção</label>
-          <Textarea
-            value={qualObsGeral}
-            onChange={(e) => setQualObsGeral(e.target.value)}
-            placeholder="Observações gerais sobre a verificação de qualidade..."
-            className="bg-white text-sm"
-            rows={3}
-          />
-        </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Footer Actions */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t shadow-lg space-y-3">
