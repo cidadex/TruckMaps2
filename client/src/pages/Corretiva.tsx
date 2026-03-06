@@ -3253,8 +3253,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
           {(() => {
             const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural", "pneumatica"];
-            const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat));
-            const itensNaoMapa = selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria));
+            const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat && !i.descricao?.startsWith("[OUTROS]")));
+            const itensNaoMapa = selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria) || item.descricao?.startsWith("[OUTROS]"));
             const isMapCat = mapCats.includes(diagNovoItemCat);
             const novoItemCatItens = diagNovoItemCat ? (CATEGORIAS_ITENS[diagNovoItemCat as keyof typeof CATEGORIAS_ITENS]?.itens || []) : [];
             const novoItemCompleto = diagNovoItemCat && diagNovoItemDesc.trim() && diagNovoItemItem && diagNovoItemAcao && diagNovoItemTempo > 0 && (diagNovoItemItem !== "Outros" || diagNovoItemCustomDesc.trim());
@@ -3897,8 +3897,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
           {(() => {
             const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural"];
-            const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat));
-            return selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria));
+            const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat && !i.descricao?.startsWith("[OUTROS]")));
+            return selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria) || item.descricao?.startsWith("[OUTROS]"));
           })().map((item, idx) => {
             const catInfo = CATEGORIAS.find(c => c.id === item.categoria);
             const catItens = CATEGORIAS_ITENS[item.categoria as keyof typeof CATEGORIAS_ITENS]?.itens || [];
@@ -3939,7 +3939,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     <Lock className="w-3 h-3" />
                     Descrição do Motorista (não editável)
                   </label>
-                  <p className="text-slate-700 font-medium">{item.descricao}</p>
+                  <p className="text-slate-700 font-medium">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</p>
                 </div>
 
                 {/* Nota técnica (Diagnóstico) */}
@@ -5564,6 +5564,62 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                           ))}
                         </div>
                       )}
+                    </div>
+                  </div>
+                )}
+
+                {itensVisiveis.some(i => i.descricao?.startsWith("[OUTROS]")) && (
+                  <div className="px-4 pt-4">
+                    <div className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase mb-3 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-violet-500"></div>
+                        Itens Não Mapeados
+                      </h4>
+                      <div className="space-y-2">
+                        {itensVisiveis.filter(i => i.descricao?.startsWith("[OUTROS]")).map(item => {
+                          const rawDesc = item.descricao || "";
+                          const cleanDesc = rawDesc.replace(/^\[OUTROS\]\s*/, "");
+                          const nomeItem = item.descricaoCustom || item.item || (cleanDesc.includes(":") ? cleanDesc.split(":")[0].trim() : cleanDesc);
+                          const detalhes = cleanDesc.includes(":") ? cleanDesc.split(":").slice(1).join(":").trim() : "";
+                          return (
+                            <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-slate-800 truncate">{nomeItem}</p>
+                                  {detalhes && <p className="text-xs text-slate-500 mt-0.5">{detalhes}</p>}
+                                  {item.tempoEstimado ? <p className="text-xs text-amber-600 font-medium mt-0.5">Est.: {item.tempoEstimado} min</p> : null}
+                                </div>
+                                <div className="shrink-0">
+                                  <ItemMapTimer item={item} />
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-2">
+                                {!item.inicioTimer && !item.executado && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+                                  <button
+                                    onClick={async () => {
+                                      await updateOSItem(selectedOSManut.id, item.id, { inicioTimer: Date.now() });
+                                      await refetchOS();
+                                      const updated = osList.find(o => o.id === selectedOSManut.id);
+                                      if (updated) setSelectedOSManut(updated);
+                                    }}
+                                    className="flex-1 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg"
+                                  >
+                                    Iniciar
+                                  </button>
+                                )}
+                                {item.inicioTimer && !item.executado && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+                                  <button
+                                    onClick={() => handleCompletarItem(selectedOSManut.id, item.id)}
+                                    className="flex-1 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg"
+                                  >
+                                    Concluir
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 )}
