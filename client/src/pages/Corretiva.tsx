@@ -504,6 +504,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
   const [diagEditingItemId, setDiagEditingItemId] = useState<number | null>(null);
   const [diagEditingItemDesc, setDiagEditingItemDesc] = useState("");
   const [showAddItemForm, setShowAddItemForm] = useState(false);
+  const [diagNovoItemOutros, setDiagNovoItemOutros] = useState(false);
   const [diagAddMapModalOpen, setDiagAddMapModalOpen] = useState(false);
   const [diagAddMapModalId, setDiagAddMapModalId] = useState("");
   const [diagAddMapModalDesc, setDiagAddMapModalDesc] = useState("");
@@ -677,6 +678,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
   const [limparOSAutenticado, setLimparOSAutenticado] = useState(false);
   const [osSelecionadasParaDeletar, setOsSelecionadasParaDeletar] = useState<number[]>([]);
 
+  const [osOutrosOpen, setOsOutrosOpen] = useState(false);
+  const [osOutrosNome, setOsOutrosNome] = useState("");
+  const [osOutrosDesc, setOsOutrosDesc] = useState("");
+
   const resetForm = () => {
     setNome("");
     setSobrenome("");
@@ -695,6 +700,9 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
     setItens([]);
     setItemCounter(1);
     setNovaOS(null);
+    setOsOutrosOpen(false);
+    setOsOutrosNome("");
+    setOsOutrosDesc("");
   };
 
   const handleAddItem = () => {
@@ -979,6 +987,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
       setDiagNovoItemAcao("");
       setDiagNovoItemTempo(0);
       setDiagNovoItemObs("");
+      setDiagNovoItemOutros(false);
       setShowAddItemForm(false);
     } catch (error) {
       console.error("Erro ao adicionar item:", error);
@@ -3268,7 +3277,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     Itens para Diagnóstico ({itensNaoMapa.length})
                   </h3>
                   <button
-                    onClick={() => { setShowAddItemForm(!showAddItemForm); setDiagAddMapRodas({}); }}
+                    onClick={() => { setShowAddItemForm(!showAddItemForm); setDiagAddMapRodas({}); setDiagNovoItemOutros(false); }}
                     className="flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700"
                     data-testid="btn-add-item"
                   >
@@ -3283,7 +3292,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                     <div className="space-y-4">
                       <div>
                         <label className="text-xs font-medium text-slate-500 mb-2 block">Categoria <span className="text-red-500">*</span></label>
-                        <Select value={diagNovoItemCat} onValueChange={(v) => { setDiagNovoItemCat(v); setDiagNovoItemItem(""); setDiagNovoItemCustomDesc(""); setDiagAddMapRodas({}); }}>
+                        <Select value={diagNovoItemCat} onValueChange={(v) => { setDiagNovoItemCat(v); setDiagNovoItemItem(""); setDiagNovoItemCustomDesc(""); setDiagAddMapRodas({}); setDiagNovoItemOutros(false); }}>
                           <SelectTrigger className="h-12 bg-white" data-testid="select-novo-item-cat">
                             <SelectValue placeholder="Selecione a categoria" />
                           </SelectTrigger>
@@ -3295,7 +3304,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         </Select>
                       </div>
 
-                      {diagNovoItemCat && isMapCat && selectedOS.tipoConjunto && (
+                      {diagNovoItemCat && isMapCat && !diagNovoItemOutros && selectedOS.tipoConjunto && (
                         <>
                           <p className="text-xs text-slate-500">Use os ícones laterais para registrar serviços</p>
                           <div className="border-2 border-slate-200 rounded-xl p-4 bg-slate-50">
@@ -3671,7 +3680,15 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                             )}
                           </div>
                           <button
-                            onClick={() => { setShowAddItemForm(false); setDiagNovoItemCat(""); setDiagAddMapRodas({}); }}
+                            onClick={() => { setDiagNovoItemOutros(true); setDiagNovoItemDesc(""); setDiagNovoItemItem(""); setDiagNovoItemCustomDesc(""); setDiagNovoItemAcao(""); setDiagNovoItemTempo(0); }}
+                            className="w-full py-3 bg-amber-100 text-amber-700 border border-amber-300 rounded-xl font-bold flex items-center justify-center gap-2"
+                            data-testid="btn-outros-nao-mapeado-diag"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Adicionar item não mapeado
+                          </button>
+                          <button
+                            onClick={() => { setShowAddItemForm(false); setDiagNovoItemCat(""); setDiagAddMapRodas({}); setDiagNovoItemOutros(false); }}
                             className="w-full py-3 bg-slate-200 text-slate-700 rounded-xl font-bold"
                             data-testid="btn-fechar-mapa-item"
                           >
@@ -3680,7 +3697,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         </>
                       )}
 
-                      {diagNovoItemCat && !isMapCat && (
+                      {diagNovoItemCat && (!isMapCat || diagNovoItemOutros) && (
                         <>
                           <div>
                             <label className="text-xs font-medium text-slate-500 mb-2 block">Descrição do problema <span className="text-red-500">*</span></label>
@@ -3789,15 +3806,25 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                           </div>
 
                           <div className="flex gap-2">
+                            {diagNovoItemOutros ? (
+                              <button
+                                onClick={() => { setDiagNovoItemOutros(false); setDiagNovoItemDesc(""); setDiagNovoItemItem(""); setDiagNovoItemCustomDesc(""); setDiagNovoItemAcao(""); setDiagNovoItemTempo(0); }}
+                                className="flex-1 py-3 bg-amber-100 text-amber-700 border border-amber-300 rounded-xl font-bold text-sm"
+                                data-testid="btn-voltar-mapa"
+                              >
+                                ← Voltar ao mapa
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => { setShowAddItemForm(false); setDiagNovoItemCat(""); setDiagNovoItemDesc(""); setDiagNovoItemItem(""); setDiagNovoItemCustomDesc(""); setDiagNovoItemAcao(""); setDiagNovoItemTempo(0); setDiagNovoItemObs(""); setDiagNovoItemOutros(false); }}
+                                className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold"
+                                data-testid="btn-cancelar-novo-item"
+                              >
+                                Cancelar
+                              </button>
+                            )}
                             <button
-                              onClick={() => { setShowAddItemForm(false); setDiagNovoItemCat(""); setDiagNovoItemDesc(""); setDiagNovoItemItem(""); setDiagNovoItemCustomDesc(""); setDiagNovoItemAcao(""); setDiagNovoItemTempo(0); setDiagNovoItemObs(""); }}
-                              className="flex-1 py-3 bg-slate-200 text-slate-700 rounded-xl font-bold"
-                              data-testid="btn-cancelar-novo-item"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              onClick={() => handleDiagAddItem(selectedOS.id)}
+                              onClick={() => { handleDiagAddItem(selectedOS.id); setDiagNovoItemOutros(false); }}
                               disabled={!novoItemCompleto}
                               className="flex-1 py-3 bg-blue-500 disabled:bg-slate-300 text-white rounded-xl font-bold"
                               data-testid="btn-confirmar-novo-item"
@@ -6508,7 +6535,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return (
                 <button 
                   key={cat.id} 
-                  onClick={() => { setCategoriaAtual(cat.id); setStep("itens"); }}
+                  onClick={() => { setCategoriaAtual(cat.id); setStep("itens"); setOsOutrosOpen(false); setOsOutrosNome(""); setOsOutrosDesc(""); }}
                   className={`py-6 px-4 rounded-2xl font-semibold transition-all flex flex-col items-center gap-3 bg-gradient-to-br ${cat.color} text-white shadow-lg hover:scale-[1.02] active:scale-[0.98]`}
                 >
                   <Icon className="w-8 h-8" />
@@ -6706,6 +6733,81 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   setWheelModalOpen(true);
                 }}
               />
+            </div>
+          )}
+
+          {/* Outros (item não mapeado) - para categorias com mapa */}
+          {(isBorracharia || isMecanica || isCatracas || isQuintaRoda || isEletrica || isEstrutural || isPneumatica) && (
+            <div className="mt-4">
+              {itensCategoria.filter(i => i.descricao.startsWith("[OUTROS]")).map((item, idx) => (
+                <div key={item.id} className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3 flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-amber-500">OUTROS {idx + 1}</span>
+                    <p className="text-slate-700 font-medium">{item.descricao.replace("[OUTROS] ", "")}</p>
+                  </div>
+                  <button onClick={() => handleRemoveItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+              {!osOutrosOpen ? (
+                <button
+                  onClick={() => setOsOutrosOpen(true)}
+                  className="w-full border-2 border-dashed border-slate-300 text-slate-500 hover:border-orange-400 hover:text-orange-500 font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors"
+                  data-testid="btn-outros-nao-mapeado"
+                >
+                  <Plus className="w-4 h-4" />
+                  Adicionar item não mapeado
+                </button>
+              ) : (
+                <div className="bg-amber-50 border-2 border-amber-200 border-dashed rounded-xl p-4 space-y-3">
+                  <h4 className="font-bold text-amber-800 text-sm">Item não mapeado (Outros)</h4>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 mb-1 block">Nome do item <span className="text-red-500">*</span></label>
+                    <Input
+                      placeholder="Ex: Parachoque, Escada, Gancho..."
+                      value={osOutrosNome}
+                      onChange={(e) => setOsOutrosNome(e.target.value)}
+                      className="h-11 bg-white"
+                      data-testid="input-outros-nome"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-500 mb-1 block">O que precisa ser feito? <span className="text-red-500">*</span></label>
+                    <Textarea
+                      placeholder="Descreva o problema ou serviço necessário..."
+                      value={osOutrosDesc}
+                      onChange={(e) => setOsOutrosDesc(e.target.value)}
+                      className="h-20 bg-white resize-none"
+                      data-testid="input-outros-desc"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setOsOutrosOpen(false); setOsOutrosNome(""); setOsOutrosDesc(""); }}
+                      className="flex-1 bg-slate-200 text-slate-700 font-bold py-3 rounded-xl text-sm"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (osOutrosNome.trim() && osOutrosDesc.trim()) {
+                          setItens([...itens, { id: itemCounter, categoria: categoriaAtual, descricao: `[OUTROS] ${osOutrosNome.trim()}: ${osOutrosDesc.trim()}` }]);
+                          setItemCounter(itemCounter + 1);
+                          setOsOutrosNome("");
+                          setOsOutrosDesc("");
+                          setOsOutrosOpen(false);
+                        }
+                      }}
+                      disabled={!osOutrosNome.trim() || !osOutrosDesc.trim()}
+                      className="flex-1 bg-orange-500 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl text-sm shadow-lg shadow-orange-500/30 disabled:shadow-none"
+                      data-testid="btn-outros-adicionar"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
