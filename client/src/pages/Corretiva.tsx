@@ -344,6 +344,45 @@ function ItemMapTimer({ item }: { item: { id: number; descricao?: string | null;
   );
 }
 
+function ManutTotalTimer({ os }: { os: OS }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const totalEstimadoSeg = os.itens.reduce((acc, item) => acc + (item.tempoEstimado || 0) * 60, 0);
+  const inicios = os.itens.map(i => i.inicioTimer).filter(Boolean) as number[];
+  const inicio = inicios.length > 0 ? Math.min(...inicios) : (os.inicioManutencao ? new Date(os.inicioManutencao).getTime() : null);
+
+  if (!inicio) return null;
+
+  const decorrido = Math.max(0, Math.floor((Date.now() - inicio) / 1000));
+  const excedeu = totalEstimadoSeg > 0 && decorrido > totalEstimadoSeg;
+  const mostrar = excedeu ? decorrido - totalEstimadoSeg : totalEstimadoSeg > 0 ? Math.max(0, totalEstimadoSeg - decorrido) : decorrido;
+
+  const fmt = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
+    return `${m}:${ss.toString().padStart(2, '0')}`;
+  };
+
+  const totalMin = Math.floor(totalEstimadoSeg / 60);
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+      <span className="text-xs text-slate-400">
+        {totalEstimadoSeg > 0 ? `Estimado: ${totalMin}min` : "Sem estimativa"}
+      </span>
+      <span className={`text-3xl font-black tabular-nums ${excedeu ? "text-red-600" : "text-emerald-600"}`}>
+        {excedeu ? "+" : ""}{fmt(mostrar)}
+      </span>
+    </div>
+  );
+}
+
 interface Funcionario {
   id: number;
   nome: string;
@@ -4946,17 +4985,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             </div>
           )}
 
-          {/* Timers individuais — apenas itens com timer ativo */}
-          {selectedOSManut.itens.filter(i => !i.executado && i.inicioTimer).length > 0 && (
-            <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-              <span className="text-xs font-bold text-slate-500 uppercase">Em andamento</span>
-              <div className="space-y-1.5">
-                {selectedOSManut.itens.filter(i => !i.executado && i.inicioTimer).map(item => (
-                  <ItemMapTimer key={item.id} item={item} />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Timer total da manutenção */}
+          <ManutTotalTimer os={selectedOSManut} />
         </div>
 
         {/* Mapas de Manutenção com ícones de processo */}
@@ -5142,13 +5172,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "borracharia").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "borracharia").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5216,13 +5239,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "mecanica").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "mecanica").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5287,13 +5303,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "catracas").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "catracas").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5358,13 +5367,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "quinta_roda").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "quinta_roda").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5429,13 +5431,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "eletrica").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "eletrica").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5500,13 +5495,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "estrutural").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "estrutural").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5571,13 +5559,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         }}
                         readOnly={false}
                       />
-                      {itensVisiveis.filter(i => i.categoria === "pneumatica").length > 0 && (
-                        <div className="mt-3 space-y-1.5">
-                          {itensVisiveis.filter(i => i.categoria === "pneumatica").map(item => (
-                            <ItemMapTimer key={item.id} item={item} />
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5615,9 +5596,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                     {item.tempoEstimado ? <p className="text-xs text-amber-600 font-medium mt-0.5">Est.: {item.tempoEstimado} min</p> : null}
                                     {item.pecaSolicitada && item.aguardandoPeca && <p className="text-xs text-amber-700 mt-1 font-medium">📦 {item.pecaSolicitada}</p>}
                                     {item.motivoAprovacao && item.aguardandoAprovacao && <p className="text-xs text-purple-700 mt-1 font-medium">🔒 {item.motivoAprovacao}</p>}
-                                  </div>
-                                  <div className="shrink-0">
-                                    <ItemMapTimer item={item} />
                                   </div>
                                 </div>
 
