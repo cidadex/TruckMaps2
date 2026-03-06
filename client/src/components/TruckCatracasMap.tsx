@@ -145,7 +145,6 @@ export default function TruckCatracasMap({
     if (iconMode === "manutencao" && ms) {
       return (
         <div className="flex flex-col items-center gap-0.5">
-          <MapItemTimer inicioTimer={ms.inicioTimer} tempoEstimado={ms.tempoEstimado} />
           <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
             <button type="button" onClick={() => onPackageClick?.(id)}
               className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>

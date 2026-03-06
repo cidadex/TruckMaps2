@@ -5199,13 +5199,13 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return filtered;
             })();
 
-            const hasBorrachariaRodas = Object.keys(rodasObjFinal).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
-            const hasMechPoints = Object.keys(rodasObjFinal).some(k => k.includes("-p") && !k.startsWith("est-"));
-            const hasCatracasPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("catr-"));
-            const hasQuintaRodaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("qr-"));
-            const hasEletricaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("ele-"));
-            const hasEstruturalPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("est-"));
-            const hasPneumaticaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("pneu-"));
+            const hasBorrachariaRodas = Object.keys(rodasObjFinal).some(k => (k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe")) && !(rodasObjFinal[k] as string).startsWith("[OK]"));
+            const hasMechPoints = Object.keys(rodasObjFinal).some(k => k.includes("-p") && !k.startsWith("est-") && !(rodasObjFinal[k] as string).startsWith("[OK]"));
+            const hasCatracasPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("catr-") && !(rodasObjFinal[k] as string).startsWith("[OK]"));
+            const hasQuintaRodaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("qr-") && !(rodasObjFinal[k] as string).startsWith("[OK]"));
+            const hasEletricaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("ele-") && !(rodasObjFinal[k] as string).startsWith("[OK]"));
+            const hasEstruturalPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("est-") && !(rodasObjFinal[k] as string).startsWith("[OK]"));
+            const hasPneumaticaPoints = Object.keys(rodasObjFinal).some(k => k.startsWith("pneu-") && !(rodasObjFinal[k] as string).startsWith("[OK]"));
 
             const handleMapInfo = (wId: string) => {
               setManutMapInfoWheelId(wId);
@@ -7657,7 +7657,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         {osAtualizada.tipoConjunto && (() => {
           try {
             const rodasObjBorr: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
-            const hasBorrPoints = Object.keys(rodasObjBorr).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
+            const hasBorrPoints = Object.keys(rodasObjBorr).some(k => (k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe")) && !rodasObjBorr[k].startsWith("[OK]"));
             const borrItems = itensParaInspecionar.filter(i => i.categoria === "borracharia");
             if (!hasBorrPoints && borrItems.length === 0) return null;
             return (
@@ -7714,7 +7714,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
-            const hasMechPoints = Object.keys(rodasObj).some(k => k.startsWith("sr") && k.includes("-p"));
+            const hasMechPoints = Object.keys(rodasObj).some(k => k.startsWith("sr") && k.includes("-p") && !(rodasObj[k] as string).startsWith("[OK]"));
             const mechItems = itensParaInspecionar.filter(i => i.categoria === "mecanica");
             if (!hasMechPoints && mechItems.length === 0) return null;
             return (
@@ -7776,7 +7776,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
-            const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-"));
+            const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-") && !(rodasObj[k] as string).startsWith("[OK]"));
             const catrItems = itensParaInspecionar.filter(i => i.categoria === "catracas");
             if (!hasCatracasPoints && catrItems.length === 0) return null;
             return (
@@ -7817,7 +7817,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         {osAtualizada.rodas && osAtualizada.tipoConjunto && (() => {
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
-            const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-"));
+            const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-") && !(rodasObj[k] as string).startsWith("[OK]"));
             const qrItems = itensParaInspecionar.filter(i => i.categoria === "quinta_roda");
             if (!hasQuintaRodaPoints && qrItems.length === 0) return null;
             return (
@@ -7862,7 +7862,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               if (!Object.keys(parsed).some(k => k.startsWith("ele-"))) { osAtualizada.itens.filter(i => i.categoria === "eletrica").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
               return parsed;
             })();
-            const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-"));
+            const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-") && !(rodasObj[k] as string).startsWith("[OK]"));
             const eleItems = itensParaInspecionar.filter(i => i.categoria === "eletrica");
             if (!hasEletricaPoints && eleItems.length === 0) return null;
             return (
@@ -7907,7 +7907,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               if (!Object.keys(parsed).some(k => k.startsWith("est-"))) { osAtualizada.itens.filter(i => i.categoria === "estrutural").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
               return parsed;
             })();
-            const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-"));
+            const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-") && !(rodasObj[k] as string).startsWith("[OK]"));
             const estItems = itensParaInspecionar.filter(i => i.categoria === "estrutural");
             if (!hasEstruturalPoints && estItems.length === 0) return null;
             return (
@@ -7952,7 +7952,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               if (!Object.keys(parsed).some(k => k.startsWith("pneu-"))) { osAtualizada.itens.filter(i => i.categoria === "pneumatica").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
               return parsed;
             })();
-            const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-"));
+            const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-") && !(rodasObj[k] as string).startsWith("[OK]"));
             const pneuItems = itensParaInspecionar.filter(i => i.categoria === "pneumatica");
             if (!hasPneumaticaPoints && pneuItems.length === 0) return null;
             return (
@@ -7988,6 +7988,49 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               </div>
             );
           } catch { return null; }
+        })()}
+
+        {/* Itens Avulsos / Outros — catch-all para categorias não cobertas pelas seções acima */}
+        {(() => {
+          const catsCovered = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural", "pneumatica"];
+          const outrosItens = itensParaInspecionar.filter(i => !catsCovered.includes(i.categoria || ""));
+          if (outrosItens.length === 0) return null;
+          return (
+            <div className="px-4 pt-2">
+              <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
+                <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Outros Itens</h4>
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
+                  {outrosItens.map(item => {
+                    const status = qualChecklist[item.id];
+                    const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
+                    const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
+                    const jaAprov = hLast?.resultado === "conforme" && item.executado;
+                    const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                    const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (item.item && item.item !== "Outros" ? item.item : (pM?.[1] || ""));
+                    const pDesc = pM?.[2] || item.descricao || "";
+                    return (
+                      <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
+                        <div className="flex-1 min-w-0">
+                          {pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}
+                          <p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc || item.descricaoCustom || item.item || "Item"}</p>
+                          {item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}
+                        </div>
+                        {jaAprov ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Aprovado</Badge>
+                        ) : (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <button onClick={() => { handleQualCheckItem(item.id, "conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "conforme" ? "bg-emerald-500 text-white" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200"}`}><CheckCircle className="w-4 h-4" /></button>
+                            <button onClick={() => { handleQualCheckItem(item.id, "nao_conforme"); setQualObsItemId(item.id); setQualObsText(item.observacaoQualidade || ""); }} className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${status === "nao_conforme" ? "bg-red-500 text-white" : "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"}`}><XCircle className="w-4 h-4" /></button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
         })()}
 
         {/* Observação Geral - dentro do wrapper scrollável */}
@@ -8590,18 +8633,34 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
                         {/* Descrição */}
                         <div className="px-3 py-2">
-                          <p className="font-bold text-slate-800 text-sm leading-snug">
-                            {resolvePointIdsInText(
-                              item.descricao?.replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\|.*$/, "") || item.descricao || "",
-                              os.tipoConjunto
-                            )}
-                          </p>
-                          {item.item && item.item !== "Outros" && (
-                            <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Peça/Local: {item.item}</p>
-                          )}
-                          {item.item === "Outros" && item.descricaoCustom && (
-                            <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Peça/Local: {item.descricaoCustom}</p>
-                          )}
+                          {(() => {
+                            const bracketMatch = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                            const pointId = bracketMatch?.[1];
+                            const afterBracket = bracketMatch?.[2]?.replace(/\s*\|.*$/, "").trim() || "";
+                            const primaryLabel = item.item && item.item !== "Outros"
+                              ? item.item
+                              : item.item === "Outros" && item.descricaoCustom
+                                ? item.descricaoCustom
+                                : pointId ? getPointHumanLabel(pointId, os.tipoConjunto) : null;
+                            const secondaryText = afterBracket
+                              ? resolvePointIdsInText(afterBracket, os.tipoConjunto)
+                              : !bracketMatch ? resolvePointIdsInText(item.descricao?.replace(/\s*\|.*$/, "") || "", os.tipoConjunto) : "";
+                            return (
+                              <>
+                                {primaryLabel && (
+                                  <p className="font-black text-slate-900 text-sm leading-snug">{primaryLabel}</p>
+                                )}
+                                {secondaryText && secondaryText !== primaryLabel && (
+                                  <p className={`text-xs text-slate-600 leading-snug ${primaryLabel ? "mt-0.5" : "font-bold text-slate-800 text-sm"}`}>
+                                    {secondaryText}
+                                  </p>
+                                )}
+                                {!primaryLabel && !secondaryText && (
+                                  <p className="font-bold text-slate-800 text-sm leading-snug">{item.descricao || ""}</p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Tempos reais (sem "Estimado") */}
@@ -8686,121 +8745,6 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   })}
                 </div>
               </div>
-
-              {/* DIAGNÓSTICO DE RODAS */}
-              {os.rodas && (() => {
-                try {
-                  const rodasObj = JSON.parse(os.rodas);
-                  const rodasOk = Object.entries(rodasObj).filter(([, desc]) => typeof desc === "string" && (desc as string).startsWith("[OK]"));
-                  const rodasTroca = Object.entries(rodasObj).filter(([, desc]) => typeof desc === "string" && (desc as string).startsWith("[TROCA]"));
-                  const rodasFerramenta = Object.entries(rodasObj).filter(([, desc]) => typeof desc === "string" && (desc as string).startsWith("[FERRAMENTA]"));
-                  const rodasProblema = Object.entries(rodasObj).filter(([, desc]) => typeof desc === "string" && !(desc as string).startsWith("[OK]") && !(desc as string).startsWith("[TROCA]") && !(desc as string).startsWith("[FERRAMENTA]"));
-                  if (rodasOk.length === 0 && rodasTroca.length === 0 && rodasFerramenta.length === 0 && rodasProblema.length === 0) return null;
-                  return (
-                    <div className="px-6 py-4 border-b border-slate-100">
-                      <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 border-l-2 border-primary pl-2">Diagnóstico de Rodas / Pneus</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {rodasOk.map(([id]) => (
-                          <div key={id} className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span className="font-bold text-emerald-700">{id}</span>
-                            <span className="text-emerald-600 text-xs">OK - Sem problema</span>
-                          </div>
-                        ))}
-                        {rodasTroca.map(([id, desc]) => {
-                          const tempoMatch = (desc as string).match(/Tempo: ([^\|]+)/);
-                          return (
-                            <div key={id} className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-sm">
-                              <RefreshCw className="w-4 h-4 text-orange-600 shrink-0" />
-                              <span className="font-bold text-orange-700">{id}</span>
-                              <span className="text-orange-600 text-xs">Troca de pneu</span>
-                              {tempoMatch && <span className="text-xs text-slate-500 ml-auto">{tempoMatch[1].trim()}</span>}
-                            </div>
-                          );
-                        })}
-                        {rodasFerramenta.map(([id, desc]) => {
-                          const descMatch = (desc as string).match(/\[FERRAMENTA\] ([^\|]+)/);
-                          const tempoMatch = (desc as string).match(/Tempo: ([^\|]+)/);
-                          return (
-                            <div key={id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
-                              <Wrench className="w-4 h-4 text-blue-600 shrink-0" />
-                              <span className="font-bold text-blue-700">{id}</span>
-                              <span className="text-blue-600 text-xs">{descMatch?.[1]?.trim() || "Serviço"}</span>
-                              {tempoMatch && <span className="text-xs text-slate-500 ml-auto">{tempoMatch[1].trim()}</span>}
-                            </div>
-                          );
-                        })}
-                        {rodasProblema.map(([id, desc]) => (
-                          <div key={id} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm">
-                            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                            <span className="font-bold text-red-700">{id}</span>
-                            <span className="text-red-600 text-xs">{desc as string}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                } catch { return null; }
-              })()}
-
-              {/* DIAGNÓSTICO MECÂNICO (Pontos) */}
-              {os.rodas && os.tipoConjunto && (() => {
-                try {
-                  const rodasObj = JSON.parse(os.rodas);
-                  const hasMechPoints = Object.keys(rodasObj).some(k => k.startsWith("sr") && k.includes("-p"));
-                  if (!hasMechPoints) return null;
-                  const mechEntries = Object.entries(rodasObj).filter(([k]) => k.includes("-p"));
-                  const mechOk = mechEntries.filter(([, desc]) => typeof desc === "string" && (desc as string).startsWith("[OK]"));
-                  const mechTroca = mechEntries.filter(([, desc]) => typeof desc === "string" && (desc as string).startsWith("[TROCA]"));
-                  const mechFerramenta = mechEntries.filter(([, desc]) => typeof desc === "string" && (desc as string).startsWith("[FERRAMENTA]"));
-                  const mechProblema = mechEntries.filter(([, desc]) => typeof desc === "string" && !(desc as string).startsWith("[OK]") && !(desc as string).startsWith("[TROCA]") && !(desc as string).startsWith("[FERRAMENTA]"));
-                  if (mechOk.length === 0 && mechTroca.length === 0 && mechFerramenta.length === 0 && mechProblema.length === 0) return null;
-                  return (
-                    <div className="px-6 py-4 border-b border-slate-100">
-                      <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3 border-l-2 border-primary pl-2">Diagnóstico Mecânico</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {mechOk.map(([id]) => (
-                          <div key={id} className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm">
-                            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span className="font-bold text-emerald-700">{id}</span>
-                            <span className="text-emerald-600 text-xs">OK</span>
-                          </div>
-                        ))}
-                        {mechTroca.map(([id, desc]) => {
-                          const tempoMatch = (desc as string).match(/Tempo: ([^\|]+)/);
-                          return (
-                            <div key={id} className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 text-sm">
-                              <RefreshCw className="w-4 h-4 text-orange-600 shrink-0" />
-                              <span className="font-bold text-orange-700">{id}</span>
-                              <span className="text-orange-600 text-xs">Troca</span>
-                              {tempoMatch && <span className="text-xs text-slate-500 ml-auto">{tempoMatch[1].trim()}</span>}
-                            </div>
-                          );
-                        })}
-                        {mechFerramenta.map(([id, desc]) => {
-                          const descMatch = (desc as string).match(/\[FERRAMENTA\] ([^\|]+)/);
-                          const tempoMatch = (desc as string).match(/Tempo: ([^\|]+)/);
-                          return (
-                            <div key={id} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-sm">
-                              <Wrench className="w-4 h-4 text-blue-600 shrink-0" />
-                              <span className="font-bold text-blue-700">{id}</span>
-                              <span className="text-blue-600 text-xs">{descMatch?.[1]?.trim() || "Serviço"}</span>
-                              {tempoMatch && <span className="text-xs text-slate-500 ml-auto">{tempoMatch[1].trim()}</span>}
-                            </div>
-                          );
-                        })}
-                        {mechProblema.map(([id, desc]) => (
-                          <div key={id} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm">
-                            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                            <span className="font-bold text-red-700">{id}</span>
-                            <span className="text-red-600 text-xs">{desc as string}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                } catch { return null; }
-              })()}
 
               {/* EVIDÊNCIAS FOTOGRÁFICAS */}
               {os.itens.some(i => i.fotoDiagnostico || i.fotoQualidade) && (
