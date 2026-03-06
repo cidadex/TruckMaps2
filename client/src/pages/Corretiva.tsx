@@ -825,6 +825,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
   const [diagWheelModalAcao, setDiagWheelModalAcao] = useState("");
   const [diagWheelModalErro, setDiagWheelModalErro] = useState("");
   const [diagWheelModalObs, setDiagWheelModalObs] = useState("");
+  const [liberarErro, setLiberarErro] = useState("");
 
   // Admin - Gerenciar OS (Temporário)
   const [showLimparOSModal, setShowLimparOSModal] = useState(false);
@@ -979,6 +980,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
   const handleLiberarManutencao = async (osId: number) => {
     if (isProcessing) return;
+    setLiberarErro("");
     setIsProcessing(true);
 
     try {
@@ -1092,6 +1094,21 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
       // Recarregar a OS para garantir que pegamos os itens novos (incluindo os das rodas)
       const { data: refreshedList } = await refetchOS();
       const currentOS = refreshedList?.find((o: OS) => o.id === osId) || os;
+
+      // Bloquear se não há itens ou se há itens sem diagnóstico completo
+      if (currentOS.itens.length === 0) {
+        setLiberarErro("A OS não possui itens diagnosticados. Adicione pelo menos um item antes de liberar.");
+        setIsProcessing(false);
+        return;
+      }
+      const itensSemTempo = currentOS.itens.filter((i: OSItem) => !i.tempoEstimado || i.tempoEstimado <= 0);
+      if (itensSemTempo.length > 0) {
+        const nomes = itensSemTempo.map((i: OSItem) => i.item || "item").slice(0, 3).join(", ");
+        const extra = itensSemTempo.length > 3 ? ` +${itensSemTempo.length - 3} outros` : "";
+        setLiberarErro(`${itensSemTempo.length} item(ns) sem tempo estimado: ${nomes}${extra}. Corrija antes de liberar para manutenção.`);
+        setIsProcessing(false);
+        return;
+      }
 
       const agora = Date.now();
       for (const item of currentOS.itens) {
@@ -4358,6 +4375,12 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
         {/* Footer */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
+          {liberarErro && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+              <span className="text-red-500 font-bold text-sm mt-0.5">⚠</span>
+              <p className="text-sm text-red-700 font-semibold">{liberarErro}</p>
+            </div>
+          )}
           <button
             onClick={() => handleLiberarManutencao(selectedOS.id)}
             disabled={isProcessing}
