@@ -835,8 +835,16 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           const rodasObj = JSON.parse(os.rodas);
           for (const [wheelId, desc] of Object.entries(rodasObj)) {
             if (typeof desc !== "string" || desc.startsWith("[OK]")) continue;
-            const itemExiste = os.itens.some(i => i.descricao.includes(wheelId));
-            if (itemExiste) continue;
+            const itemExistente = os.itens.find(i => i.descricao.includes(wheelId));
+            if (itemExistente) {
+              // Item já existe mas pode estar sem tempoEstimado — corrigir
+              if (!itemExistente.tempoEstimado || itemExistente.tempoEstimado <= 0) {
+                const tempoMatch = desc.match(/Tempo:\s*(\d+)/);
+                const tempoCorreto = tempoMatch ? parseInt(tempoMatch[1]) : 30;
+                await updateOSItem(osId, itemExistente.id, { tempoEstimado: tempoCorreto });
+              }
+              continue;
+            }
 
             let categoria = "";
             let itemLabel = "";
