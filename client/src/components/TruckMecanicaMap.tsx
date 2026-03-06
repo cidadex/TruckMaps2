@@ -174,15 +174,15 @@ export default function TruckMecanicaMap({
     return (
       <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5`}>
         <button type="button" onClick={() => onOkClick?.(id)}
-          className={`w-4 h-4 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Check className="w-2.5 h-2.5" />
         </button>
         <button type="button" onClick={() => onTrocaClick?.(id)}
-          className={`w-4 h-4 rounded flex items-center justify-center ${hasTroca ? "bg-orange-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${hasTroca ? "bg-orange-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <RefreshCw className="w-2.5 h-2.5" />
         </button>
         <button type="button" onClick={() => onWrenchClick?.(id)}
-          className={`w-4 h-4 rounded flex items-center justify-center ${hasWrench ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${hasWrench ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Wrench className="w-2.5 h-2.5" />
         </button>
       </div>

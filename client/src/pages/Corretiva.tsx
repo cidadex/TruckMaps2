@@ -4435,8 +4435,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   {/* O que será feito? */}
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-2">O que será feito?</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {["Ajustar", "Soldar", "Trocar"].map((acao) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {["Ajustar", "Soldar"].map((acao) => (
                         <button
                           key={acao}
                           onClick={() => { setDiagWheelModalAcao(acao); setDiagWheelModalErro(""); }}
@@ -4634,7 +4634,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         return;
                       }
                       if (!diagWheelModalAcao) {
-                        setDiagWheelModalErro("Selecione o que será feito (Ajustar, Soldar ou Trocar)");
+                        setDiagWheelModalErro("Selecione o que será feito (Ajustar ou Soldar)");
                         return;
                       }
                       desc = `${diagWheelModalAcao} - ${local}`;
@@ -6057,8 +6057,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-2">O que será feito?</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {["Ajustar", "Soldar", "Trocar"].map((acao) => (
+                    <div className="grid grid-cols-2 gap-2">
+                      {["Ajustar", "Soldar"].map((acao) => (
                         <button key={acao} onClick={() => { setManutMapActionAcao(acao); setManutMapActionErro(""); }}
                           className={`py-3 rounded-xl text-sm font-bold transition-all ${manutMapActionAcao === acao ? "bg-blue-600 text-white shadow-md shadow-blue-500/30" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
                           {acao}

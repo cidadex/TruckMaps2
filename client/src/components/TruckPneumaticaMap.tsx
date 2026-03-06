@@ -180,15 +180,15 @@ export default function TruckPneumaticaMap({
     return (
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <button type="button" onClick={() => onOkClick?.(id)}
-          className={`w-5 h-5 rounded flex items-center justify-center ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          className={`w-5 h-5 rounded flex items-center justify-center touch-manipulation ${hasOk ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Check className="w-3 h-3" />
         </button>
         <button type="button" onClick={() => onTrocaClick?.(id)}
-          className={`w-5 h-5 rounded flex items-center justify-center ${hasTroca ? "bg-orange-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          className={`w-5 h-5 rounded flex items-center justify-center touch-manipulation ${hasTroca ? "bg-orange-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <RefreshCw className="w-3 h-3" />
         </button>
         <button type="button" onClick={() => onWrenchClick?.(id)}
-          className={`w-5 h-5 rounded flex items-center justify-center ${hasWrench ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+          className={`w-5 h-5 rounded flex items-center justify-center touch-manipulation ${hasWrench ? "bg-blue-500 text-white" : "bg-slate-200 text-slate-500"}`}>
           <Wrench className="w-3 h-3" />
         </button>
       </div>
