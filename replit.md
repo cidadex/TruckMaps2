@@ -65,6 +65,7 @@ The system serves multiple user roles including technicians, fleet managers, and
 - **Mock data architecture**: `client/src/lib/data.ts` contains sample vehicles, service orders, and navigation items for prototyping
 - **Mapas de Manutenção**: Sistema de ícones duais (Diagnóstico vs Manutenção) vinculado aos campos JSON `rodas` e `mecanica`. Mapas visuais: borracharia (`TruckWheelMap`), mecânica (`MechanicMap`), catracas (`TruckCatracasMap`), 5ª roda (`TruckQuintaRodaMap`), elétrica (`TruckEletricaMap`), estrutural (`TruckEstruturalMap`). Documentação detalhada em `DOCUMENTACAO_MAPEAMENTO.md`.
 - **IDs de Mapas**: Pneus → `-eX-` ou `-estepe`; Catracas → `catr-*`; 5ª Roda → `qr-*`; Mecânica → `-p`; Elétrica → `ele-*`; Estrutural → `est-*`.
+- **Itens Não Mapeados [OUTROS]**: Itens criados com `descricao.startsWith("[OUTROS]")` passam por fluxo completo (OS → Diagnóstico → Manutenção → Qualidade → Laudo). No Diagnóstico, filtros `catsComMapa` excluem `[OUTROS]` para que apareçam em `itensNaoMapa`. Na Manutenção, seção "Itens Não Mapeados" com cards interativos (Iniciar/Concluir com observação/Aguardando Peça/Aguardando Aprovação). Em todas as telas, o prefixo `[OUTROS]` é removido na exibição (`item.descricao.replace(/^\[OUTROS\]\s*/, "")`).
 - **Path aliases**: `@/` for client source, `@shared/` for shared code
 
 ## External Dependencies

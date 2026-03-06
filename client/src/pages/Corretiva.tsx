@@ -4664,7 +4664,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 <span className="font-bold text-slate-600 uppercase">
                   {CATEGORIAS.find(c => c.id === item.categoria)?.label}:
                 </span>
-                <span className="text-slate-500 truncate">{item.descricao}</span>
+                <span className="text-slate-500 truncate">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</span>
                 {item.aguardandoAprovacao && <ShieldCheck className="w-3 h-3 text-purple-600 ml-auto" />}
                 {item.aguardandoPeca && !item.aguardandoAprovacao && <Package className="w-3 h-3 text-amber-600 ml-auto" />}
               </div>
@@ -4818,7 +4818,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                               </Badge>
                             )}
                           </div>
-                          <p className="font-bold text-slate-800 text-sm">{item.descricao}</p>
+                          <p className="font-bold text-slate-800 text-sm">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</p>
                           {item.item && (
                             <p className="text-xs text-slate-500 mt-1">Local: {item.item === "Outros" ? item.descricaoCustom : item.item}</p>
                           )}
@@ -5575,47 +5575,202 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         <div className="w-2 h-2 rounded-full bg-violet-500"></div>
                         Itens Não Mapeados
                       </h4>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {itensVisiveis.filter(i => i.descricao?.startsWith("[OUTROS]")).map(item => {
                           const rawDesc = item.descricao || "";
                           const cleanDesc = rawDesc.replace(/^\[OUTROS\]\s*/, "");
                           const nomeItem = item.descricaoCustom || item.item || (cleanDesc.includes(":") ? cleanDesc.split(":")[0].trim() : cleanDesc);
                           const detalhes = cleanDesc.includes(":") ? cleanDesc.split(":").slice(1).join(":").trim() : "";
+                          const catInfo = CATEGORIAS.find(c => c.id === item.categoria);
+                          const isPecaOpen = manutPecaItemId === item.id;
+                          const isAprovOpen = manutAprovacaoItemId === item.id;
+                          const isObsOpen = manutObsItemId === item.id;
                           return (
-                            <div key={item.id} className="bg-white border border-slate-200 rounded-xl p-3">
-                              <div className="flex items-start justify-between gap-2 mb-2">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold text-slate-800 truncate">{nomeItem}</p>
-                                  {detalhes && <p className="text-xs text-slate-500 mt-0.5">{detalhes}</p>}
-                                  {item.tempoEstimado ? <p className="text-xs text-amber-600 font-medium mt-0.5">Est.: {item.tempoEstimado} min</p> : null}
+                            <div key={item.id} className={`bg-white border rounded-xl overflow-hidden ${item.aguardandoPeca ? 'border-amber-300' : item.aguardandoAprovacao ? 'border-purple-300' : item.executado ? 'border-emerald-300' : 'border-slate-200'}`}>
+                              <div className="p-3">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {catInfo && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 uppercase">{catInfo.label}</span>}
+                                      {item.acao && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${item.acao === "trocar" ? "bg-red-100 text-red-700" : item.acao === "soldar" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"}`}>{item.acao === "trocar" ? "Trocar" : item.acao === "soldar" ? "Soldar" : "Ajustar"}</span>}
+                                      {item.aguardandoPeca && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">📦 Aguard. Peça</span>}
+                                      {item.aguardandoAprovacao && <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">🔒 Aguard. Aprov.</span>}
+                                    </div>
+                                    <p className="text-sm font-bold text-slate-800">{nomeItem}</p>
+                                    {detalhes && <p className="text-xs text-slate-500 mt-0.5">{detalhes}</p>}
+                                    {item.tempoEstimado ? <p className="text-xs text-amber-600 font-medium mt-0.5">Est.: {item.tempoEstimado} min</p> : null}
+                                    {item.pecaSolicitada && item.aguardandoPeca && <p className="text-xs text-amber-700 mt-1 font-medium">📦 {item.pecaSolicitada}</p>}
+                                    {item.motivoAprovacao && item.aguardandoAprovacao && <p className="text-xs text-purple-700 mt-1 font-medium">🔒 {item.motivoAprovacao}</p>}
+                                  </div>
+                                  <div className="shrink-0">
+                                    <ItemMapTimer item={item} />
+                                  </div>
                                 </div>
-                                <div className="shrink-0">
-                                  <ItemMapTimer item={item} />
+
+                                {!item.executado && (
+                                  <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {!item.inicioTimer && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+                                      <button
+                                        onClick={async () => {
+                                          await updateOSItem(selectedOSManut.id, item.id, { inicioTimer: Date.now() });
+                                          await refetchOS();
+                                          const updated = osList.find(o => o.id === selectedOSManut.id);
+                                          if (updated) setSelectedOSManut(updated);
+                                        }}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg"
+                                        data-testid={`btn-iniciar-outros-${item.id}`}
+                                      >
+                                        <Play className="w-3 h-3" /> Iniciar
+                                      </button>
+                                    )}
+
+                                    {item.inicioTimer && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+                                      <button
+                                        onClick={() => { setManutPecaItemId(null); setManutAprovacaoItemId(null); setManutObsItemId(item.id); setManutObsText(item.observacao || ""); }}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg"
+                                        data-testid={`btn-concluir-outros-${item.id}`}
+                                      >
+                                        <CheckCircle2 className="w-3 h-3" /> Concluir
+                                      </button>
+                                    )}
+
+                                    {item.inicioTimer && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+                                      <button
+                                        onClick={() => { setManutObsItemId(null); setManutAprovacaoItemId(null); setManutPecaItemId(item.id); setManutPecaText(""); }}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-lg border border-amber-200"
+                                        data-testid={`btn-peca-outros-${item.id}`}
+                                      >
+                                        <Package className="w-3 h-3" /> Peça
+                                      </button>
+                                    )}
+
+                                    {item.inicioTimer && !item.aguardandoPeca && !item.aguardandoAprovacao && (
+                                      <button
+                                        onClick={() => { setManutObsItemId(null); setManutPecaItemId(null); setManutAprovacaoItemId(item.id); setManutAprovacaoText(""); }}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-lg border border-purple-200"
+                                        data-testid={`btn-aprov-outros-${item.id}`}
+                                      >
+                                        <ShieldCheck className="w-3 h-3" /> Aprovação
+                                      </button>
+                                    )}
+
+                                    {item.aguardandoPeca && (
+                                      <button
+                                        onClick={() => handleUpdateItemPeca(selectedOSManut.id, item.id, false)}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg"
+                                        data-testid={`btn-cancel-peca-outros-${item.id}`}
+                                      >
+                                        <Package className="w-3 h-3" /> Peça Chegou
+                                      </button>
+                                    )}
+
+                                    {item.aguardandoAprovacao && (
+                                      <button
+                                        onClick={() => handleUpdateItemAprovacao(selectedOSManut.id, item.id, false)}
+                                        className="flex items-center gap-1 px-3 py-1.5 bg-purple-500 text-white text-xs font-bold rounded-lg"
+                                        data-testid={`btn-cancel-aprov-outros-${item.id}`}
+                                      >
+                                        <ShieldCheck className="w-3 h-3" /> Aprovado
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+
+                                {item.executado && (
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                                    <span className="text-xs font-bold text-emerald-600">Concluído</span>
+                                    {item.executadoPorNome && <span className="text-[10px] text-slate-400">por {item.executadoPorNome}</span>}
+                                  </div>
+                                )}
+                              </div>
+
+                              {isObsOpen && (
+                                <div className="px-3 pb-3 border-t border-slate-100 pt-2">
+                                  <label className="text-xs font-semibold text-slate-600 block mb-1">Observação do mecânico</label>
+                                  <textarea
+                                    value={manutObsText}
+                                    onChange={(e) => setManutObsText(e.target.value)}
+                                    placeholder="Descreva como foi realizado o serviço..."
+                                    className="w-full h-20 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm resize-none focus:ring-2 focus:ring-blue-500"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2 mt-2">
+                                    <button onClick={() => { setManutObsItemId(null); setManutObsText(""); }} className="flex-1 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-lg">Cancelar</button>
+                                    <button
+                                      onClick={async () => {
+                                        if (manutObsText.trim()) {
+                                          await updateOSItem(selectedOSManut.id, item.id, { observacao: manutObsText.trim() });
+                                        }
+                                        await handleCompletarItem(selectedOSManut.id, item.id);
+                                        setManutObsItemId(null);
+                                        setManutObsText("");
+                                      }}
+                                      className="flex-1 py-2 bg-emerald-500 text-white font-bold text-xs rounded-lg"
+                                    >
+                                      Concluir
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex gap-2 mt-2">
-                                {!item.inicioTimer && !item.executado && !item.aguardandoPeca && !item.aguardandoAprovacao && (
-                                  <button
-                                    onClick={async () => {
-                                      await updateOSItem(selectedOSManut.id, item.id, { inicioTimer: Date.now() });
-                                      await refetchOS();
-                                      const updated = osList.find(o => o.id === selectedOSManut.id);
-                                      if (updated) setSelectedOSManut(updated);
-                                    }}
-                                    className="flex-1 py-1.5 bg-emerald-500 text-white text-xs font-bold rounded-lg"
-                                  >
-                                    Iniciar
-                                  </button>
-                                )}
-                                {item.inicioTimer && !item.executado && !item.aguardandoPeca && !item.aguardandoAprovacao && (
-                                  <button
-                                    onClick={() => handleCompletarItem(selectedOSManut.id, item.id)}
-                                    className="flex-1 py-1.5 bg-blue-500 text-white text-xs font-bold rounded-lg"
-                                  >
-                                    Concluir
-                                  </button>
-                                )}
-                              </div>
+                              )}
+
+                              {isPecaOpen && (
+                                <div className="px-3 pb-3 border-t border-slate-100 pt-2">
+                                  <label className="text-xs font-semibold text-slate-600 block mb-1">Peça necessária</label>
+                                  <input
+                                    value={manutPecaText}
+                                    onChange={(e) => setManutPecaText(e.target.value)}
+                                    placeholder="Descreva a peça necessária..."
+                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2 mt-2">
+                                    <button onClick={() => { setManutPecaItemId(null); setManutPecaText(""); }} className="flex-1 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-lg">Cancelar</button>
+                                    <button
+                                      onClick={async () => {
+                                        if (manutPecaText.trim()) {
+                                          await handleUpdateItemPeca(selectedOSManut.id, item.id, true, manutPecaText.trim());
+                                          setManutPecaItemId(null);
+                                          setManutPecaText("");
+                                        }
+                                      }}
+                                      disabled={!manutPecaText.trim()}
+                                      className="flex-1 py-2 bg-amber-500 disabled:bg-slate-300 text-white font-bold text-xs rounded-lg"
+                                    >
+                                      Solicitar Peça
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {isAprovOpen && (
+                                <div className="px-3 pb-3 border-t border-slate-100 pt-2">
+                                  <label className="text-xs font-semibold text-slate-600 block mb-1">Motivo da solicitação</label>
+                                  <input
+                                    value={manutAprovacaoText}
+                                    onChange={(e) => setManutAprovacaoText(e.target.value)}
+                                    placeholder="Descreva o motivo da aprovação..."
+                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500"
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2 mt-2">
+                                    <button onClick={() => { setManutAprovacaoItemId(null); setManutAprovacaoText(""); }} className="flex-1 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-lg">Cancelar</button>
+                                    <button
+                                      onClick={async () => {
+                                        if (manutAprovacaoText.trim()) {
+                                          await handleUpdateItemAprovacao(selectedOSManut.id, item.id, true, manutAprovacaoText.trim());
+                                          setManutAprovacaoItemId(null);
+                                          setManutAprovacaoText("");
+                                        }
+                                      }}
+                                      disabled={!manutAprovacaoText.trim()}
+                                      className="flex-1 py-2 bg-purple-500 disabled:bg-slate-300 text-white font-bold text-xs rounded-lg"
+                                    >
+                                      Solicitar Aprovação
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -6192,7 +6347,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                             </div>
                             {item.executado && <Badge className="bg-emerald-100 text-emerald-700 text-[10px] py-0">Concluído</Badge>}
                           </div>
-                          <p className="text-sm font-bold text-slate-800 mb-2">{item.descricao}</p>
+                          <p className="text-sm font-bold text-slate-800 mb-2">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</p>
 
                           {!item.executado && item.tempoEstimado && item.tempoEstimado > 0 && (
                             <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
@@ -6871,7 +7026,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             <div key={item.id} className="bg-slate-50 rounded-xl p-4 mb-3 flex items-start justify-between">
               <div>
                 <span className="text-xs font-bold text-slate-400">ITEM {idx + 1}</span>
-                <p className="text-slate-700 font-medium">{item.descricao}</p>
+                <p className="text-slate-700 font-medium">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</p>
               </div>
               <button onClick={() => handleRemoveItem(item.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
                 <X className="w-4 h-4" />
@@ -7046,7 +7201,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                 <div className="bg-white">
                   {itens.filter(i => i.categoria === cat.id).map((item) => (
                     <div key={item.id} className="p-3 border-b last:border-b-0 border-slate-100">
-                      <span className="text-slate-600">{item.descricao}</span>
+                      <span className="text-slate-600">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</span>
                     </div>
                   ))}
                 </div>
@@ -7395,7 +7550,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
                         const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
-                        const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">
@@ -7458,7 +7613,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
                         const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
-                        const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">
@@ -7506,7 +7661,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
-                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
@@ -7547,7 +7702,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
-                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
@@ -7592,7 +7747,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
-                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
@@ -7637,7 +7792,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
-                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
@@ -7682,7 +7837,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         const hQ = osHistorico.filter(h => h.osItemId === item.id && h.tipo === "qualidade");
                         const hLast = hQ.length > 0 ? hQ.sort((a, b) => new Date(b.dataRegistro).getTime() - new Date(a.dataRegistro).getTime())[0] : null;
                         const jaAprov = hLast?.resultado === "conforme" && item.executado;
-                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = pM?.[1] || ""; const pDesc = pM?.[2] || item.descricao || "";
+                        const pM = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); const pId = item.descricao?.startsWith("[OUTROS]") ? (item.descricaoCustom || item.item || "") : (pM?.[1] || ""); const pDesc = pM?.[2] || item.descricao || "";
                         return (
                           <div key={item.id} className={`flex items-center gap-2 rounded-lg px-2 py-2 ${status === "conforme" ? "bg-emerald-50 border border-emerald-200" : status === "nao_conforme" ? "bg-red-50 border border-red-200" : "bg-white/80 border border-slate-200"}`}>
                             <div className="flex-1 min-w-0">{pId && <span className="text-[10px] font-bold text-slate-400 block">{pId}</span>}<p className="text-xs font-semibold text-slate-700 leading-tight">{pDesc}</p>{item.observacaoQualidade && <p className="text-[10px] text-purple-600 italic mt-0.5 truncate">{item.observacaoQualidade}</p>}{item.fotoQualidade && <span className="text-[10px] text-blue-600 font-bold">📷 Foto OK</span>}</div>
@@ -7945,7 +8100,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         </Badge>
                       )}
                     </div>
-                    <p className="font-semibold text-slate-800">{item.descricao}</p>
+                    <p className="font-semibold text-slate-800">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</p>
                     {item.aguardandoPeca && item.pecaSolicitada && (
                       <p className="text-xs text-amber-700 mt-0.5 font-medium flex items-center gap-1">
                         <Package className="w-3 h-3" />
@@ -8520,7 +8675,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {os.itens.filter(i => i.fotoDiagnostico || i.fotoQualidade).map((item) => (
                       <div key={item.id} className="bg-slate-50 p-3 rounded-xl border">
-                        <p className="text-[9px] font-bold text-slate-700 mb-2 truncate">{item.descricao}</p>
+                        <p className="text-[9px] font-bold text-slate-700 mb-2 truncate">{item.descricao?.startsWith("[OUTROS]") ? item.descricao.replace(/^\[OUTROS\]\s*/, "") : item.descricao}</p>
                         <div className="grid grid-cols-2 gap-2">
                           {item.fotoDiagnostico && (
                             <div>
