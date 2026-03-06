@@ -1720,9 +1720,17 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         responsavelManutencaoId: manutUser?.id,
         responsavelManutencaoNome: manutUser?.nome
       });
-      await refetchOS();
-      const updatedOS = osList.find(o => o.id === os.id);
-      setSelectedOSManut(updatedOS || os);
+      const { data: lista1 } = await refetchOS();
+      const updatedOS = lista1?.find((o: OS) => o.id === os.id) || os;
+      // Auto-iniciar timer de todos os itens que ainda não têm timer
+      const agora = Date.now();
+      const semTimer = updatedOS.itens.filter((i: OS["itens"][number]) => !i.executado && !i.inicioTimer);
+      for (const item of semTimer) {
+        await updateOSItem(os.id, item.id, { inicioTimer: agora, totalPausa: 0 });
+      }
+      const { data: lista2 } = await refetchOS();
+      const finalOS = lista2?.find((o: OS) => o.id === os.id) || updatedOS;
+      setSelectedOSManut(finalOS);
       setStep("manutencao_detalhe");
     } catch (error) {
       console.error("Erro ao assumir OS:", error);
