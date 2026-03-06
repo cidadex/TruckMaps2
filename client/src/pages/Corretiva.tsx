@@ -13,7 +13,7 @@ import { queryClient } from "@/lib/queryClient";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 
-import TruckCatracasMap from "@/components/TruckCatracasMap";
+import TruckCatracasMap, { getCatracaLabel } from "@/components/TruckCatracasMap";
 import TruckQuintaRodaMap from "@/components/TruckQuintaRodaMap";
 import TruckEletricaMap from "@/components/TruckEletricaMap";
 import TruckEstruturalMap from "@/components/TruckEstruturalMap";
@@ -113,13 +113,7 @@ const getPointHumanLabel = (id: string, tipoConjunto?: string): string => {
   }
   // Catracas: catr-sr1-l1 / catr-sr1-r4
   if (id.startsWith("catr-")) {
-    const m = id.match(/^catr-(sr\d+)-([lr])(\d+)$/);
-    if (m) {
-      const sr = m[1].toUpperCase();
-      const lado = m[2] === "l" ? "Esq." : "Dir.";
-      return `Catraca ${lado} ${m[3]} (${sr})`;
-    }
-    return "Catraca";
+    return getCatracaLabel(id);
   }
   // Mecânica: sr1-p1-esq / sr1-p1-dir
   const mec = id.match(/^(sr(\d+))-p(\d+)-(esq|dir)$/);
@@ -4394,7 +4388,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                       ? ((diagWheelModalId.includes("-p") || diagWheelModalId.startsWith("catr-") || isQuintaRodaId(diagWheelModalId) || isEletricaId(diagWheelModalId) || isEstruturalId(diagWheelModalId)) ? "Troca de Componente" : "Troca de Pneu")
                       : "Serviço / Ferramenta"}
                   </h3>
-                  <p className="text-sm text-slate-500">{getMapLabel(diagWheelModalId)}: {diagWheelModalId}</p>
+                  <p className="text-sm text-slate-500">{getPointHumanLabel(diagWheelModalId, selectedOS?.tipoConjunto)}</p>
                 </div>
               </div>
 

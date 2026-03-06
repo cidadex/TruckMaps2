@@ -4,6 +4,14 @@ import ZoomableMap from "./ZoomableMap";
 
 type StatusTipo = "ok" | "troca" | "ferramenta";
 
+export function getCatracaLabel(id: string): string {
+  const m = id.match(/^catr-(sr\d+)-([lr])(\d+)$/);
+  if (!m) return id;
+  const sr = m[1].toUpperCase();
+  const lado = m[2] === "r" ? "Dir." : "Esq.";
+  return `Catraca ${lado} ${m[3]} (${sr})`;
+}
+
 function MapItemTimer({ inicioTimer, tempoEstimado }: { inicioTimer?: number | null; tempoEstimado?: number | null }) {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -52,7 +60,6 @@ export interface TruckCatracasMapProps {
   placas?: { sr1: string; sr2?: string; sr3?: string };
 }
 
-// ── Layout ───────────────────────────────────────────────────────
 const BW       = 90;
 const SVG_PADX = 4;
 const SVG_PADY = 6;
@@ -60,9 +67,10 @@ const SVG_W    = BW + SVG_PADX * 2;
 const LEFT_X   = SVG_PADX + 16;
 const RIGHT_X  = SVG_PADX + BW - 16;
 const CONN_H   = 12;
-const ICON_COL = 52;   // width of icon column (no label text)
+const ICON_COL = 52;
+const DOT_R    = 7;
 
-const ROW_H    = 26;
+const ROW_H    = 28;
 const ROW_GAP  = 4;
 
 function bodyHeight(nRows: number) {
@@ -72,9 +80,8 @@ function rowCY(i: number) {
   return SVG_PADY + i * (ROW_H + ROW_GAP) + ROW_H / 2;
 }
 
-// 4 catracas per side per SR
 function makeCatracaIds(sr: string) {
-  return [1, 2, 3, 4].map(n => ({ left: `catr-${sr}-l${n}`, right: `catr-${sr}-r${n}` }));
+  return [1, 2, 3, 4].map(n => ({ left: `catr-${sr}-l${n}`, right: `catr-${sr}-r${n}`, num: n }));
 }
 
 export default function TruckCatracasMap({
@@ -172,40 +179,57 @@ export default function TruckCatracasMap({
     const rows = makeCatracaIds(sr);
     const nRows = rows.length;
     const BH = bodyHeight(nRows);
+    const headerH = 16;
 
     return (
-      <div style={{ position: "relative", width: containerW, height: BH }}>
+      <div style={{ position: "relative", width: containerW, height: BH + headerH }}>
+        {/* ESQ / DIR column headers */}
+        <div style={{ position: "absolute", left: colW, top: 0, width: SVG_W }}
+          className="flex justify-between px-1">
+          <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest" style={{ marginLeft: LEFT_X - SVG_PADX - 10 }}>ESQ</span>
+          <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest" style={{ marginRight: SVG_PADX + BW - RIGHT_X - 10 }}>DIR</span>
+        </div>
+
         {/* SVG body */}
-        <div style={{ position: "absolute", left: colW, top: 0 }}>
+        <div style={{ position: "absolute", left: colW, top: headerH }}>
           <svg width={SVG_W} height={BH} style={{ overflow: "visible" }}>
             <rect x={SVG_PADX} y={SVG_PADY / 2} width={BW} height={BH - SVG_PADY}
               fill="none" stroke="#2c5aa0" strokeWidth={2} rx={3} />
 
-            {/* Vertical lines */}
             <line x1={LEFT_X} y1={rowCY(0)} x2={LEFT_X} y2={rowCY(nRows - 1)}
               stroke="#2c5aa0" strokeWidth={1.5} />
             <line x1={RIGHT_X} y1={rowCY(0)} x2={RIGHT_X} y2={rowCY(nRows - 1)}
               stroke="#2c5aa0" strokeWidth={1.5} />
 
-            {rows.map(({ left, right }, i) => {
+            {rows.map(({ left, right, num }, i) => {
               const cy = rowCY(i);
+              const lColor = dotColor(left);
+              const rColor = dotColor(right);
               return (
                 <g key={i}>
-                  {/* Left box + dot */}
-                  <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 8} height={20}
+                  {/* Left box */}
+                  <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 10} height={20}
                     fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
-                  <circle cx={LEFT_X} cy={cy} r={4.5}
-                    fill={dotColor(left)}
+                  {/* Left numbered circle */}
+                  <circle cx={LEFT_X} cy={cy} r={DOT_R}
+                    fill={lColor}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(left)} />
+                  <text x={LEFT_X} y={cy + 2.5} textAnchor="middle"
+                    fontSize={5} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>E{num}</text>
 
-                  {/* Right box + dot */}
-                  <rect x={RIGHT_X - 8} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 8} height={20}
+                  {/* Right box */}
+                  <rect x={RIGHT_X - 10} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 10} height={20}
                     fill="white" stroke="#2c5aa0" strokeWidth={1.2} rx={2} />
-                  <circle cx={RIGHT_X} cy={cy} r={4.5}
-                    fill={dotColor(right)}
+                  {/* Right numbered circle */}
+                  <circle cx={RIGHT_X} cy={cy} r={DOT_R}
+                    fill={rColor}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(right)} />
+                  <text x={RIGHT_X} y={cy + 2.5} textAnchor="middle"
+                    fontSize={5} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>D{num}</text>
                 </g>
               );
             })}
@@ -214,7 +238,7 @@ export default function TruckCatracasMap({
 
         {/* LEFT icon column */}
         {showIcons && (
-          <div style={{ position: "absolute", left: 0, top: 0, width: colW, height: BH }}>
+          <div style={{ position: "absolute", left: 0, top: headerH, width: colW, height: BH }}>
             {rows.map(({ left }, i) => (
               <div key={i} style={{ position: "absolute", top: rowCY(i) - 10, right: 0 }}
                 className="flex items-center justify-end">
@@ -226,7 +250,7 @@ export default function TruckCatracasMap({
 
         {/* RIGHT icon column */}
         {showIcons && (
-          <div style={{ position: "absolute", left: colW + SVG_W, top: 0, width: colW, height: BH }}>
+          <div style={{ position: "absolute", left: colW + SVG_W, top: headerH, width: colW, height: BH }}>
             {rows.map(({ right }, i) => (
               <div key={i} style={{ position: "absolute", top: rowCY(i) - 10, left: 0 }}
                 className="flex items-center justify-start">
@@ -281,7 +305,6 @@ export default function TruckCatracasMap({
           ))}
         </div>
 
-        {/* Services list */}
         {wheelActions && Object.entries(wheelActions).filter(([id]) => id.startsWith("catr-")).length > 0 && (
           <div className="mt-3 space-y-1.5">
             <p className="text-xs font-bold text-slate-600 uppercase">Serviços registrados:</p>
@@ -295,7 +318,7 @@ export default function TruckCatracasMap({
                   {action.tipo === "ok" ? <Check className="w-3.5 h-3.5 text-emerald-600" />
                     : action.tipo === "troca" ? <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
                     : <Wrench className="w-3.5 h-3.5 text-blue-600" />}
-                  <span className="font-bold text-xs text-slate-700">{id}</span>
+                  <span className="font-bold text-xs text-slate-700">{getCatracaLabel(id)}</span>
                 </div>
                 {action.tempo && action.tipo !== "ok" && (
                   <span className="text-xs text-slate-500">{action.tempo}min</span>
