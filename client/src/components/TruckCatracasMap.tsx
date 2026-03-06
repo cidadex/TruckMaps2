@@ -5,11 +5,13 @@ import ZoomableMap from "./ZoomableMap";
 type StatusTipo = "ok" | "troca" | "ferramenta";
 
 export function getCatracaLabel(id: string): string {
-  const m = id.match(/^catr-(sr\d+)-([lr])(\d+)$/);
+  const m = id.match(/^catr-sr(\d+)-([lr])(\d+)$/);
   if (!m) return id;
-  const sr = m[1].toUpperCase();
+  const srIdx = parseInt(m[1]) - 1;
+  const localNum = parseInt(m[3]);
+  const globalNum = srIdx * 4 + localNum;
   const lado = m[2] === "r" ? "Dir." : "Esq.";
-  return `Catraca ${lado} ${m[3]} (${sr})`;
+  return `Catraca ${lado} ${globalNum}`;
 }
 
 function MapItemTimer({ inicioTimer, tempoEstimado }: { inicioTimer?: number | null; tempoEstimado?: number | null }) {
@@ -80,8 +82,12 @@ function rowCY(i: number) {
   return SVG_PADY + i * (ROW_H + ROW_GAP) + ROW_H / 2;
 }
 
-function makeCatracaIds(sr: string) {
-  return [1, 2, 3, 4].map(n => ({ left: `catr-${sr}-l${n}`, right: `catr-${sr}-r${n}`, num: n }));
+function makeCatracaIds(sr: string, srIdx: number) {
+  return [1, 2, 3, 4].map(n => ({
+    left: `catr-${sr}-l${n}`,
+    right: `catr-${sr}-r${n}`,
+    globalNum: srIdx * 4 + n,
+  }));
 }
 
 export default function TruckCatracasMap({
@@ -175,8 +181,8 @@ export default function TruckCatracasMap({
     );
   };
 
-  const SRSection = ({ sr }: { sr: string }) => {
-    const rows = makeCatracaIds(sr);
+  const SRSection = ({ sr, srIdx }: { sr: string; srIdx: number }) => {
+    const rows = makeCatracaIds(sr, srIdx);
     const nRows = rows.length;
     const BH = bodyHeight(nRows);
     const headerH = 16;
@@ -201,10 +207,12 @@ export default function TruckCatracasMap({
             <line x1={RIGHT_X} y1={rowCY(0)} x2={RIGHT_X} y2={rowCY(nRows - 1)}
               stroke="#2c5aa0" strokeWidth={1.5} />
 
-            {rows.map(({ left, right, num }, i) => {
+            {rows.map(({ left, right, globalNum }, i) => {
               const cy = rowCY(i);
               const lColor = dotColor(left);
               const rColor = dotColor(right);
+              const numStr = String(globalNum);
+              const fontSize = numStr.length >= 2 ? 5 : 6;
               return (
                 <g key={i}>
                   {/* Left box */}
@@ -216,8 +224,8 @@ export default function TruckCatracasMap({
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(left)} />
                   <text x={LEFT_X} y={cy + 2.5} textAnchor="middle"
-                    fontSize={5} fontWeight="bold" fill="white"
-                    style={{ pointerEvents: "none" }}>E{num}</text>
+                    fontSize={fontSize} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>E{numStr}</text>
 
                   {/* Right box */}
                   <rect x={RIGHT_X - 10} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 10} height={20}
@@ -228,8 +236,8 @@ export default function TruckCatracasMap({
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(right)} />
                   <text x={RIGHT_X} y={cy + 2.5} textAnchor="middle"
-                    fontSize={5} fontWeight="bold" fill="white"
-                    style={{ pointerEvents: "none" }}>D{num}</text>
+                    fontSize={fontSize} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>D{numStr}</text>
                 </g>
               );
             })}
@@ -299,7 +307,7 @@ export default function TruckCatracasMap({
                   )}
                 </span>
               </div>
-              <SRSection sr={sr} />
+              <SRSection sr={sr} srIdx={idx} />
               {idx < srs.length - 1 && <Connector />}
             </div>
           ))}
