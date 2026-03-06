@@ -320,7 +320,9 @@ function ItemMapTimer({ item }: { item: { id: number; descricao?: string | null;
     : item.aguardandoAprovacao
       ? "Aguard. aprov."
       : item.inicioTimer
-        ? excedeu ? `+${formatSec(decorrido - estimadoSeg)}` : formatSec(restante)
+        ? estimadoSeg === 0
+          ? formatSec(decorrido)
+          : excedeu ? `+${formatSec(decorrido - estimadoSeg)}` : formatSec(restante)
         : "Não iniciado";
 
   return (
