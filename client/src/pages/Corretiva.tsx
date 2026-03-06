@@ -4930,15 +4930,12 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             </div>
           )}
 
-          {/* Timers individuais por item */}
-          {selectedOSManut.itens.filter(i => !i.executado).length > 0 && (
+          {/* Timers individuais — apenas itens com timer ativo */}
+          {selectedOSManut.itens.filter(i => !i.executado && i.inicioTimer).length > 0 && (
             <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-slate-500 uppercase">Tempo por item</span>
-                <span className="text-xs text-slate-400">Total: {tempoHoras > 0 ? `${tempoHoras}h ${tempoMinutos}min` : `${tempoMinutos}min`}</span>
-              </div>
+              <span className="text-xs font-bold text-slate-500 uppercase">Em andamento</span>
               <div className="space-y-1.5">
-                {selectedOSManut.itens.filter(i => !i.executado).map(item => (
+                {selectedOSManut.itens.filter(i => !i.executado && i.inicioTimer).map(item => (
                   <ItemMapTimer key={item.id} item={item} />
                 ))}
               </div>
