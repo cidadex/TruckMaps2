@@ -18,7 +18,7 @@ import TruckQuintaRodaMap from "@/components/TruckQuintaRodaMap";
 import TruckEletricaMap from "@/components/TruckEletricaMap";
 import TruckEstruturalMap from "@/components/TruckEstruturalMap";
 import TruckPneumaticaMap from "@/components/TruckPneumaticaMap";
-import TruckBorrachariaMap from "@/components/TruckBorrachariaMap";
+import TruckBorrachariaMap, { getBorrachariaWheelLabel } from "@/components/TruckBorrachariaMap";
 import TruckMecanicaMap from "@/components/TruckMecanicaMap";
 import ZoomableMap from "@/components/ZoomableMap";
 
@@ -895,17 +895,18 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
             if (isWheelId(wheelId)) {
               categoria = "borracharia";
-              itemLabel = "Roda";
+              const pneuLabel = getBorrachariaWheelLabel(wheelId, (os.tipoConjunto || "bitrem") as "bitrem" | "tritrem");
+              itemLabel = pneuLabel;
               if (desc.startsWith("[TROCA]")) {
                 acao = "trocar";
                 const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
                 if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 45;
-                descricaoFinal = `Troca de pneu - Roda ${wheelId}`;
+                descricaoFinal = `Troca de pneu - ${pneuLabel} ${wheelId}`;
               } else if (desc.startsWith("[FERRAMENTA]")) {
                 acao = "ajustar";
                 const descMatch = desc.match(/\[FERRAMENTA\] ([^\|]+)/);
                 const tempoMatch = desc.match(/Tempo: ([^\|]+)/);
-                if (descMatch) descricaoFinal = `${descMatch[1].trim()} - Roda ${wheelId}`;
+                if (descMatch) descricaoFinal = `${descMatch[1].trim()} - ${pneuLabel} ${wheelId}`;
                 if (tempoMatch) tempo = parseInt(tempoMatch[1]) || 30;
               }
             } else if (isEletricaId(wheelId)) {
@@ -2911,7 +2912,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                             }
                           } catch {}
                         } else {
-                          const lbl = getMapLabel(wheelId);
+                          const lbl = isWheelId(wheelId) ? getBorrachariaWheelLabel(wheelId, selectedOS.tipoConjunto as "bitrem" | "tritrem") : getMapLabel(wheelId);
                           const action: WheelActionData = { tipo: "ok", descricao: `${lbl} OK - sem necessidade de manutenção`, tempo: "", observacao: "" };
                           setDiagWheelActions(prev => ({ ...prev, [wheelId]: action }));
                           try {
@@ -3411,7 +3412,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                                       }
                                     } catch {}
                                   } else {
-                                    const lbl = getMapLabel(wheelId);
+                                    const lbl = isWheelId(wheelId) ? getBorrachariaWheelLabel(wheelId, selectedOS.tipoConjunto as "bitrem" | "tritrem") : getMapLabel(wheelId);
                                     const action: WheelActionData = { tipo: "ok", descricao: `${lbl} OK - sem necessidade de manutenção`, tempo: "", observacao: "" };
                                     setDiagWheelActions(prev => ({ ...prev, [wheelId]: action }));
                                     try {

@@ -55,6 +55,35 @@ export interface TruckBorrachariaMapProps {
   placas?: { cavalo?: string; sr1?: string; sr2?: string; sr3?: string };
 }
 
+// ── Numbering utility ────────────────────────────────────────────
+// Left side: descends top→bottom (1, 2, 3… across all SRs)
+// Right side: ascends bottom→top (totalLeft+1… total at SR1-top)
+// Estepe: labeled "E"
+export function getBorrachariaWheelLabel(id: string, tipo: "bitrem" | "tritrem"): string {
+  if (id.endsWith("-estepe")) return "Estepe";
+  const isBitrem  = tipo === "bitrem";
+  const axlePerSR = isBitrem ? 3 : 2;
+  const srs       = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
+  const srCount   = srs.length;
+  const totalLeft = axlePerSR * srCount;
+
+  const m = id.match(/^(sr\d+)-e(\d+)-(esq|dir)$/);
+  if (!m) return id;
+  const srIdx   = srs.indexOf(m[1]);
+  const axleIdx = parseInt(m[2]) - 1;
+  const side    = m[3];
+
+  if (srIdx < 0 || axleIdx < 0) return id;
+
+  if (side === "esq") {
+    const num = srIdx * axlePerSR + axleIdx + 1;
+    return `Pneu ${num}`;
+  } else {
+    const num = totalLeft + (srCount - 1 - srIdx) * axlePerSR + (axlePerSR - axleIdx);
+    return `Pneu ${num}`;
+  }
+}
+
 // ── Layout ───────────────────────────────────────────────────────
 const BW       = 90;
 const SVG_PADX = 4;
@@ -65,6 +94,7 @@ const RIGHT_X  = SVG_PADX + BW - 14;
 const CX       = SVG_PADX + BW / 2;
 const CONN_H   = 12;
 const ICON_COL = 52;
+const DOT_R    = 9;
 
 const ROW_H    = 26;
 const ROW_GAP  = 4;
@@ -100,14 +130,19 @@ export default function TruckBorrachariaMap({
 
   const isBitrem   = tipo === "bitrem";
   const axlePerSR  = isBitrem ? 3 : 2;
+  const srs        = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
+  const srCount    = srs.length;
+  const totalLeft  = axlePerSR * srCount;
 
-  const srAxles = (srPrefix: string) =>
+  type AxleDef = { left: string; right: string; leftNum: number; rightNum: number };
+
+  const srAxles = (srPrefix: string, srIdx: number): AxleDef[] =>
     Array.from({ length: axlePerSR }, (_, i) => ({
-      left:  `${srPrefix}-e${i + 1}-esq`,
-      right: `${srPrefix}-e${i + 1}-dir`,
+      left:     `${srPrefix}-e${i + 1}-esq`,
+      right:    `${srPrefix}-e${i + 1}-dir`,
+      leftNum:  srIdx * axlePerSR + i + 1,
+      rightNum: totalLeft + (srCount - 1 - srIdx) * axlePerSR + (axlePerSR - i),
     }));
-
-  const srs = isBitrem ? ["sr1", "sr2"] : ["sr1", "sr2", "sr3"];
 
   const issueCount = Object.keys(rodas).filter(k =>
     (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe")
@@ -130,7 +165,7 @@ export default function TruckBorrachariaMap({
     if (hasTroca)  return "#f97316";
     if (hasWrench) return "#3b82f6";
     if (hasStatus) return "#ef4444";
-    return "#1e293b";  // dark for tires
+    return "#1e293b";
   };
 
   const handleDot = (id: string) => {
@@ -181,8 +216,6 @@ export default function TruckBorrachariaMap({
   };
 
   // ── Generic section body ─────────────────────────────────────
-  type AxleDef = { left: string; right: string };
-
   const BodySection = ({
     axles,
     estepeId,
@@ -194,9 +227,8 @@ export default function TruckBorrachariaMap({
     fillColor?: string;
     borderColor?: string;
   }) => {
-    const nRows = axles.length + (estepeId ? 1 : 0);
-    const BH    = bodyHeight(nRows);
-    // estepe is first row (index 0), then axles
+    const nRows     = axles.length + (estepeId ? 1 : 0);
+    const BH        = bodyHeight(nRows);
     const axleOffset = estepeId ? 1 : 0;
 
     return (
@@ -215,39 +247,61 @@ export default function TruckBorrachariaMap({
             <line x1={RIGHT_X} y1={rowCY(0)} x2={RIGHT_X} y2={rowCY(nRows - 1)}
               stroke={borderColor} strokeWidth={1.5} />
 
-            {/* Estepe (spare) — center dot */}
+            {/* Estepe (spare) — center, labeled "E" */}
             {estepeId && (() => {
               const cy = rowCY(0);
+              const fill = dotColor(estepeId);
               return (
                 <g>
                   <rect x={CX - 12} y={cy - 10} width={24} height={20}
                     fill="white" stroke={borderColor} strokeWidth={1.2} rx={2} />
-                  <circle cx={CX} cy={cy} r={4.5}
-                    fill={dotColor(estepeId)}
+                  <circle cx={CX} cy={cy} r={DOT_R}
+                    fill={fill}
+                    stroke={borderColor} strokeWidth={1}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(estepeId)} />
+                  <text x={CX} y={cy + 3.5} textAnchor="middle"
+                    fontSize={7} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>E</text>
                 </g>
               );
             })()}
 
-            {/* Axle rows */}
-            {axles.map(({ left, right }, i) => {
-              const cy = rowCY(i + axleOffset);
+            {/* Axle rows with numbered circles */}
+            {axles.map(({ left, right, leftNum, rightNum }, i) => {
+              const cy     = rowCY(i + axleOffset);
+              const lFill  = dotColor(left);
+              const rFill  = dotColor(right);
+
               return (
                 <g key={i}>
+                  {/* Left tire rect + numbered circle */}
                   <rect x={SVG_PADX} y={cy - 10} width={LEFT_X - SVG_PADX + 8} height={20}
                     fill="white" stroke={borderColor} strokeWidth={1.2} rx={2} />
-                  <circle cx={LEFT_X} cy={cy} r={4.5}
-                    fill={dotColor(left)}
+                  <circle cx={LEFT_X} cy={cy} r={DOT_R}
+                    fill={lFill}
+                    stroke={borderColor} strokeWidth={1}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(left)} />
+                  <text x={LEFT_X} y={cy + 3.5} textAnchor="middle"
+                    fontSize={leftNum >= 10 ? 6 : 7} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>
+                    {leftNum}
+                  </text>
 
+                  {/* Right tire rect + numbered circle */}
                   <rect x={RIGHT_X - 8} y={cy - 10} width={SVG_PADX + BW - RIGHT_X + 8} height={20}
                     fill="white" stroke={borderColor} strokeWidth={1.2} rx={2} />
-                  <circle cx={RIGHT_X} cy={cy} r={4.5}
-                    fill={dotColor(right)}
+                  <circle cx={RIGHT_X} cy={cy} r={DOT_R}
+                    fill={rFill}
+                    stroke={borderColor} strokeWidth={1}
                     style={{ cursor: readOnly ? "default" : "pointer" }}
                     onClick={() => handleDot(right)} />
+                  <text x={RIGHT_X} y={cy + 3.5} textAnchor="middle"
+                    fontSize={rightNum >= 10 ? 6 : 7} fontWeight="bold" fill="white"
+                    style={{ pointerEvents: "none" }}>
+                    {rightNum}
+                  </text>
                 </g>
               );
             })}
@@ -310,8 +364,6 @@ export default function TruckBorrachariaMap({
         </div>
 
         <div style={{ width: containerW, margin: "0 auto" }}>
-
-          {/* ── SR sections ── */}
           {srs.map((sr, idx) => (
             <div key={sr}>
               <div style={{ width: containerW }} className="flex items-center justify-center mb-1">
@@ -325,7 +377,7 @@ export default function TruckBorrachariaMap({
                 </span>
               </div>
               <BodySection
-                axles={srAxles(sr)}
+                axles={srAxles(sr, idx)}
                 estepeId={sr === "sr1" ? "sr1-estepe" : undefined}
               />
               {idx < srs.length - 1 && <Connector />}
@@ -351,7 +403,9 @@ export default function TruckBorrachariaMap({
                   {action.tipo === "ok" ? <Check className="w-3.5 h-3.5 text-emerald-600" />
                     : action.tipo === "troca" ? <RefreshCw className="w-3.5 h-3.5 text-orange-600" />
                     : <Wrench className="w-3.5 h-3.5 text-blue-600" />}
-                  <span className="font-bold text-xs text-slate-700">{id}</span>
+                  <span className="font-bold text-xs text-slate-700">
+                    {getBorrachariaWheelLabel(id, tipo)}
+                  </span>
                 </div>
                 {action.tempo && action.tipo !== "ok" && (
                   <span className="text-xs text-slate-500">{action.tempo}min</span>
