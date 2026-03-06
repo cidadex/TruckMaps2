@@ -38,6 +38,127 @@ const getMapLabel = (id: string) => {
   return "Ponto";
 };
 
+const ELE_SUFFIX_LABEL: Record<string, string> = {
+  "vigsup-le": "Viga Sup. L/E",
+  "vigsup-ld": "Viga Sup. L/D",
+  "vigam-le": "Viga Amarelo L/E",
+  "vigam-ld": "Viga Amarelo L/D",
+  "chicote": "Chicote",
+  "luzplaca": "Luz de Placa",
+  "lanterna-le": "Lanterna L/E",
+  "lanterna-ld": "Lanterna L/D",
+  "vigvermelho-le": "Viga Vermelho L/E",
+  "vigvermelho-ld": "Viga Vermelho L/D",
+  "sirene": "Sirene do Ré",
+  "delimitadora-le": "Delimitadora L/E",
+  "delimitadora-ld": "Delimitadora L/D",
+};
+
+const EST_SUFFIX_LABEL: Record<string, string> = {
+  "mesa5roda": "Mesa 5ª Roda",
+  "protetor-le": "Protetor L/E",
+  "protetor-ld": "Protetor L/D",
+  "base-fueiro": "Base e Fueiro",
+  "assoalho": "Assoalho",
+  "paralama-le": "Para-lama L/E",
+  "paralama-ld": "Para-lama L/D",
+  "chassi": "Chassi",
+  "parachoque": "Para-choque",
+  "placa": "Placa de Veículo Longo",
+};
+
+const getPointHumanLabel = (id: string, tipoConjunto?: string): string => {
+  // Quinta Roda: qr-sr1-frente / qr-sr1-tras
+  if (isQuintaRodaId(id)) {
+    const m = id.match(/^qr-(sr\d+)-(frente|tras)$/);
+    if (m) {
+      const sr = m[1].toUpperCase();
+      return m[2] === "frente" ? `Ponto Frente (${sr})` : `5ª Roda (${sr})`;
+    }
+    return "5ª Roda";
+  }
+  // Elétrica: ele-sr1-vigsup-le / ele-conexao-cav-sr1
+  if (isEletricaId(id)) {
+    if (id === "ele-conexao-cav-sr1") return "Conexão Cavalo p/ SR1";
+    const m = id.match(/^ele-(sr\d+)-(.+)$/);
+    if (m) {
+      const sr = m[1].toUpperCase();
+      const suffix = m[2];
+      const label = ELE_SUFFIX_LABEL[suffix] || suffix;
+      return `${label} (${sr})`;
+    }
+    return "Elétrica";
+  }
+  // Estrutural: est-sr1-mesa5roda / est-malhal-dianteiro / est-placa-veiculo
+  if (isEstruturalId(id)) {
+    if (id === "est-malhal-dianteiro") return "Malhal Dianteiro";
+    if (id === "est-malhal-traseiro") return "Malhal Traseiro";
+    if (id === "est-placa-veiculo") return "Placa do Veículo Conj.";
+    const m = id.match(/^est-(sr\d+)-(.+)$/);
+    if (m) {
+      const sr = m[1].toUpperCase();
+      const suffix = m[2];
+      const label = EST_SUFFIX_LABEL[suffix] || suffix;
+      return `${label} (${sr})`;
+    }
+    return "Estrutural";
+  }
+  // Pneumática: pneu-sr1-dreno1 / pneu-sr1-dreno2 / pneu-rodado-N
+  if (isPneumaticaId(id)) {
+    const dr = id.match(/^pneu-(sr\d+)-dreno(\d+)$/);
+    if (dr) return `Dreno ${dr[2]} (${dr[1].toUpperCase()})`;
+    const rod = id.match(/^pneu-rodado-(\d+)$/);
+    if (rod) return `Rodado ${rod[1]}`;
+    return "Pneumática";
+  }
+  // Catracas: catr-sr1-l1 / catr-sr1-r4
+  if (id.startsWith("catr-")) {
+    const m = id.match(/^catr-(sr\d+)-([lr])(\d+)$/);
+    if (m) {
+      const sr = m[1].toUpperCase();
+      const lado = m[2] === "l" ? "Esq." : "Dir.";
+      return `Catraca ${lado} ${m[3]} (${sr})`;
+    }
+    return "Catraca";
+  }
+  // Mecânica: sr1-p1-esq / sr1-p1-dir
+  const mec = id.match(/^(sr(\d+))-p(\d+)-(esq|dir)$/);
+  if (mec) {
+    const srNum = parseInt(mec[2]);
+    const axleNum = parseInt(mec[3]);
+    const lado = mec[4] === "esq" ? "L/E" : "L/D";
+    if (tipoConjunto) {
+      const isBitrem = tipoConjunto === "bitrem";
+      const axlePerSR = isBitrem ? 3 : 2;
+      const srCount = isBitrem ? 2 : 3;
+      const totalLeft = 6;
+      const srIdx = srNum - 1;
+      const axleI = axleNum - 1;
+      if (mec[4] === "esq") {
+        const num = srIdx * axlePerSR + axleI + 1;
+        return `Pneu ${num} ${lado} (SR${srNum})`;
+      } else {
+        const num = totalLeft + (srCount - 1 - srIdx) * axlePerSR + (axlePerSR - axleI);
+        return `Pneu ${num} ${lado} (SR${srNum})`;
+      }
+    }
+    return `SR${srNum} Eixo ${axleNum} ${lado}`;
+  }
+  // Borracharia: handled by getBorrachariaWheelLabel; fallback here
+  if (isWheelId(id)) return "Roda";
+  return getMapLabel(id);
+};
+
+const resolvePointIdsInText = (text: string, tipoConjunto?: string): string => {
+  if (!text) return text;
+  return text
+    .replace(/\b(qr-sr\d+-(?:frente|tras)|ele-conexao-cav-sr\d+|ele-sr\d+-[\w-]+|est-malhal-dianteiro|est-malhal-traseiro|est-placa-veiculo|est-sr\d+-[\w-]+|pneu-sr\d+-dreno\d+|pneu-rodado-\d+|catr-sr\d+-[lr]\d+)\b/g, (id) => getPointHumanLabel(id, tipoConjunto))
+    .replace(/\bsr\d+-p\d+-(?:esq|dir)\b/g, (id) => getPointHumanLabel(id, tipoConjunto))
+    .replace(/\bsr\d+-e\d+-(?:esq|dir)\b|\bsr\d+-estepe\b/g, (id) => {
+      try { return getBorrachariaWheelLabel(id, (tipoConjunto || "bitrem") as "bitrem" | "tritrem"); } catch { return id; }
+    });
+};
+
 const CONJUNTOS = ["CM", "SR1", "SR2", "SR3"];
 
 const CATEGORIAS_ITENS = {
@@ -911,7 +1032,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               }
             } else if (isEletricaId(wheelId)) {
               categoria = "eletrica";
-              itemLabel = getMapLabel(wheelId);
+              itemLabel = getPointHumanLabel(wheelId, os.tipoConjunto);
               tempo = 30;
               if (desc.startsWith("[TROCA]")) {
                 acao = "trocar";
@@ -927,7 +1048,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               }
             } else if (isEstruturalId(wheelId)) {
               categoria = "estrutural";
-              itemLabel = getMapLabel(wheelId);
+              itemLabel = getPointHumanLabel(wheelId, os.tipoConjunto);
               tempo = 30;
               if (desc.startsWith("[TROCA]")) {
                 acao = "trocar";
@@ -943,7 +1064,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               }
             } else if (isPneumaticaId(wheelId)) {
               categoria = "pneumatica";
-              itemLabel = getMapLabel(wheelId);
+              itemLabel = getPointHumanLabel(wheelId, os.tipoConjunto);
               tempo = 30;
               if (desc.startsWith("[TROCA]")) {
                 acao = "trocar";
@@ -4551,8 +4672,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                           const acao = diagWheelModalType === "troca" ? "trocar" : (diagWheelModalAcao || "ajustar").toLowerCase();
                           await createOSItem(selectedOS.id, {
                             categoria,
-                            item: getMapLabel(diagWheelModalId),
-                            descricao: `${getMapLabel(diagWheelModalId)} ${diagWheelModalId}: ${desc}`,
+                            item: getPointHumanLabel(diagWheelModalId, selectedOS?.tipoConjunto),
+                            descricao: `${getPointHumanLabel(diagWheelModalId, selectedOS?.tipoConjunto)} ${diagWheelModalId}: ${desc}`,
                             acao,
                             tempoEstimado: parseInt(diagWheelModalTempo || "0") || 30,
                             inicioTimer: Date.now(),
@@ -8453,7 +8574,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                         {/* Descrição */}
                         <div className="px-3 py-2">
                           <p className="font-bold text-slate-800 text-sm leading-snug">
-                            {item.descricao?.replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\|.*$/, "") || item.descricao}
+                            {resolvePointIdsInText(
+                              item.descricao?.replace(/^\[[^\]]+\]\s*/, "").replace(/\s*\|.*$/, "") || item.descricao || "",
+                              os.tipoConjunto
+                            )}
                           </p>
                           {item.item && item.item !== "Outros" && (
                             <p className="text-[10px] text-slate-500 mt-0.5 font-bold">Peça/Local: {item.item}</p>
