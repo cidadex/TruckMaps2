@@ -930,9 +930,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
 
       const agora = Date.now();
       for (const item of currentOS.itens) {
-        if (item.tempoEstimado && item.tempoEstimado > 0) {
-          await updateOSItem(osId, item.id, { inicioTimer: agora, totalPausa: 0 });
-        }
+        await updateOSItem(osId, item.id, { inicioTimer: agora, totalPausa: 0 });
       }
 
       await updateOS(osId, {
