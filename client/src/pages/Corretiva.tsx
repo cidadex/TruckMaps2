@@ -4930,17 +4930,18 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             </div>
           )}
 
-          {/* Tempo Total Estimado e Restante */}
-          {tempoTotal > 0 && (
+          {/* Timers individuais por item */}
+          {selectedOSManut.itens.filter(i => !i.executado).length > 0 && (
             <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-600">Tempo Total Estimado</span>
-                <div className="flex items-center gap-2 bg-amber-100 text-amber-700 px-4 py-2 rounded-full font-bold">
-                  <Timer className="w-4 h-4" />
-                  {tempoHoras > 0 ? `${tempoHoras}h ${tempoMinutos}min` : `${tempoMinutos} min`}
-                </div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-slate-500 uppercase">Tempo por item</span>
+                <span className="text-xs text-slate-400">Total: {tempoHoras > 0 ? `${tempoHoras}h ${tempoMinutos}min` : `${tempoMinutos}min`}</span>
               </div>
-              <OSTimer os={selectedOSManut} />
+              <div className="space-y-1.5">
+                {selectedOSManut.itens.filter(i => !i.executado).map(item => (
+                  <ItemMapTimer key={item.id} item={item} />
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -6159,7 +6160,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         )}
 
         {/* Footer com opções de encaminhamento */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4">
+        <div className="bg-white border-t shadow-lg p-4 mt-4">
           <div className="flex gap-2 items-center">
             <button
               onClick={() => setShowManutAddItemForm(true)}
