@@ -36,7 +36,6 @@ export const MOCK_OS = [
 
 export const NAV_ITEMS = [
   { title: "Placas / Conjuntos", url: "/", icon: Truck },
-  { title: "Corretivas", url: "/service-orders", icon: Wrench },
   { title: "Relatórios", url: "/reports", icon: FileText },
   { title: "Usuários", url: "/users", icon: Users },
 ];

@@ -10,7 +10,6 @@ import Inspection from "@/pages/Inspection";
 import CreateChecklistLayout from "@/pages/CreateChecklistLayout";
 import PreventiveMaintenance from "@/pages/PreventiveMaintenance";
 import Vehicles from "@/pages/Vehicles";
-import ServiceOrders from "@/pages/ServiceOrders";
 import Reports from "@/pages/Reports";
 import Users from "@/pages/Users";
 import Corretiva from "@/pages/Corretiva";
@@ -39,7 +38,6 @@ function Router({ onLogout }: { onLogout: () => void }) {
             <Route path="/preventive-maintenance" component={PreventiveMaintenance}/>
             <Route path="/create-checklist-layout" component={CreateChecklistLayout}/>
             <Route path="/inspection" component={Inspection}/>
-            <Route path="/service-orders" component={ServiceOrders}/>
             <Route path="/reports" component={Reports}/>
             <Route path="/users" component={Users}/>
             <Route component={NotFound} />

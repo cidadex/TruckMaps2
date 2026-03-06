@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { NAV_ITEMS } from "@/lib/data";
 import { Link, useLocation } from "wouter";
-import { LogOut, User, ChevronRight, Activity, Clock, CheckCircle, List, ClipboardList, Wrench, FileText, Building2 } from "lucide-react";
+import { LogOut, User, ChevronRight, Activity, Clock, CheckCircle, ClipboardList, Wrench, FileText, Building2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -57,14 +57,6 @@ export function AppSidebar() {
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <SidebarMenuSub>
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton asChild isActive={location === "/service-orders"}>
-                                <Link href="/service-orders">
-                                  <List className="size-4 mr-2" />
-                                  <span>Painel de OS</span>
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
                             <SidebarMenuSubItem>
                               <SidebarMenuSubButton asChild isActive={location === "/corretiva/nova"}>
                                 <Link href="/corretiva/nova">

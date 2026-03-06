@@ -11,7 +11,6 @@ export default function MainLayout({ children, onLogout }: { children: React.Rea
   const getPageTitle = (path: string) => {
     if (path === "/") return "Painel Geral";
     if (path.startsWith("/vehicles")) return "Placas / Conjuntos";
-    if (path.startsWith("/service-orders")) return "Ordens de Serviço";
     if (path.startsWith("/inspection")) return "Execução de OS";
     if (path.startsWith("/reports")) return "Relatórios";
     if (path.startsWith("/users")) return "Usuários";
