@@ -7744,7 +7744,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObjBorr: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
             const hasBorrPoints = Object.keys(rodasObjBorr).some(k => (k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe")) && !rodasObjBorr[k].startsWith("[OK]"));
-            const borrItems = itensParaInspecionar.filter(i => i.categoria === "borracharia");
+            const borrItems = itensParaInspecionar.filter(i => i.categoria === "borracharia" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasBorrPoints && borrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7801,7 +7801,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasMechPoints = Object.keys(rodasObj).some(k => k.startsWith("sr") && k.includes("-p") && !(rodasObj[k] as string).startsWith("[OK]"));
-            const mechItems = itensParaInspecionar.filter(i => i.categoria === "mecanica");
+            const mechItems = itensParaInspecionar.filter(i => i.categoria === "mecanica" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasMechPoints && mechItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7863,7 +7863,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasCatracasPoints = Object.keys(rodasObj).some(k => k.startsWith("catr-") && !(rodasObj[k] as string).startsWith("[OK]"));
-            const catrItems = itensParaInspecionar.filter(i => i.categoria === "catracas");
+            const catrItems = itensParaInspecionar.filter(i => i.categoria === "catracas" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasCatracasPoints && catrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7904,7 +7904,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj = JSON.parse(osAtualizada.rodas || "{}");
             const hasQuintaRodaPoints = Object.keys(rodasObj).some(k => k.startsWith("qr-") && !(rodasObj[k] as string).startsWith("[OK]"));
-            const qrItems = itensParaInspecionar.filter(i => i.categoria === "quinta_roda");
+            const qrItems = itensParaInspecionar.filter(i => i.categoria === "quinta_roda" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasQuintaRodaPoints && qrItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7949,7 +7949,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return parsed;
             })();
             const hasEletricaPoints = Object.keys(rodasObj).some(k => k.startsWith("ele-") && !(rodasObj[k] as string).startsWith("[OK]"));
-            const eleItems = itensParaInspecionar.filter(i => i.categoria === "eletrica");
+            const eleItems = itensParaInspecionar.filter(i => i.categoria === "eletrica" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasEletricaPoints && eleItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -7994,7 +7994,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return parsed;
             })();
             const hasEstruturalPoints = Object.keys(rodasObj).some(k => k.startsWith("est-") && !(rodasObj[k] as string).startsWith("[OK]"));
-            const estItems = itensParaInspecionar.filter(i => i.categoria === "estrutural");
+            const estItems = itensParaInspecionar.filter(i => i.categoria === "estrutural" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasEstruturalPoints && estItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -8039,7 +8039,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               return parsed;
             })();
             const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-") && !(rodasObj[k] as string).startsWith("[OK]"));
-            const pneuItems = itensParaInspecionar.filter(i => i.categoria === "pneumatica");
+            const pneuItems = itensParaInspecionar.filter(i => i.categoria === "pneumatica" && !i.descricao?.startsWith("[OUTROS]"));
             if (!hasPneumaticaPoints && pneuItems.length === 0) return null;
             return (
               <div className="px-4 pt-2">
@@ -8079,12 +8079,12 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
         {/* Itens Avulsos / Outros — catch-all para categorias não cobertas pelas seções acima */}
         {(() => {
           const catsCovered = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural", "pneumatica"];
-          const outrosItens = itensParaInspecionar.filter(i => !catsCovered.includes(i.categoria || ""));
+          const outrosItens = itensParaInspecionar.filter(i => !catsCovered.includes(i.categoria || "") || i.descricao?.startsWith("[OUTROS]"));
           if (outrosItens.length === 0) return null;
           return (
             <div className="px-4 pt-2">
               <div className="border border-teal-200 rounded-xl p-4 bg-teal-50/50">
-                <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Outros Itens</h4>
+                <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Itens Não Mapeados</h4>
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wide">Verificação de Qualidade</p>
                   {outrosItens.map(item => {
