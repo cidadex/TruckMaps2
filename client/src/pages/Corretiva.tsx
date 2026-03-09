@@ -2974,12 +2974,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   if (match) parsed[match[1]] = match[2];
                 });
               }
-              if (!Object.keys(parsed).some(k => k.startsWith("pneu-"))) {
-                selectedOS.itens.filter(i => i.categoria === "pneumatica").forEach(item => {
-                  const match = item.descricao.match(/^\[([^\]]+)\]\s*(.*)/);
-                  if (match) parsed[match[1]] = match[2];
-                });
-              }
+              selectedOS.itens.filter(i => i.categoria === "pneumatica" && !i.descricao?.startsWith("[OUTROS]")).forEach(item => {
+                const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                if (match && !parsed[match[1]]) parsed[match[1]] = match[2];
+              });
               return parsed;
             })();
             const hasBorrachariaRodas = Object.keys(rodasData).some(k => k.startsWith("cavalo-e") || (k.startsWith("sr") && k.includes("-e")) || k.endsWith("-estepe"));
@@ -4084,7 +4082,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           })()}
 
           {(() => {
-            const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural"];
+            const mapCats = ["borracharia", "mecanica", "catracas", "quinta_roda", "eletrica", "estrutural", "pneumatica"];
             const catsComMapa = mapCats.filter(cat => selectedOS.itens.some(i => i.categoria === cat && !i.descricao?.startsWith("[OUTROS]")));
             return selectedOS.itens.filter(item => !catsComMapa.includes(item.categoria) || item.descricao?.startsWith("[OUTROS]"));
           })().map((item, idx) => {
@@ -5145,12 +5143,10 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
                   if (match) parsed[match[1]] = match[2];
                 });
               }
-              if (!Object.keys(parsed).some(k => k.startsWith("pneu-"))) {
-                selectedOSManut.itens.filter(i => i.categoria === "pneumatica").forEach(item => {
-                  const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
-                  if (match) parsed[match[1]] = match[2];
-                });
-              }
+              selectedOSManut.itens.filter(i => i.categoria === "pneumatica" && !i.descricao?.startsWith("[OUTROS]")).forEach(item => {
+                const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/);
+                if (match && !parsed[match[1]]) parsed[match[1]] = match[2];
+              });
               return parsed;
             })();
             const manutStatusMap: Record<string, ManutWheelStatus> = {};
@@ -7949,7 +7945,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           try {
             const rodasObj: Record<string, string> = (() => {
               const parsed: Record<string, string> = (() => { try { return JSON.parse(osAtualizada.rodas || "{}"); } catch { return {}; } })();
-              if (!Object.keys(parsed).some(k => k.startsWith("pneu-"))) { osAtualizada.itens.filter(i => i.categoria === "pneumatica").forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match) parsed[match[1]] = match[2]; }); }
+              osAtualizada.itens.filter(i => i.categoria === "pneumatica" && !i.descricao?.startsWith("[OUTROS]")).forEach(item => { const match = item.descricao?.match(/^\[([^\]]+)\]\s*(.*)/); if (match && !parsed[match[1]]) parsed[match[1]] = match[2]; });
               return parsed;
             })();
             const hasPneumaticaPoints = Object.keys(rodasObj).some(k => k.startsWith("pneu-") && !(rodasObj[k] as string).startsWith("[OK]"));
