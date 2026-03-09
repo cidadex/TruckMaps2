@@ -23,6 +23,12 @@ function Router({ onLogout }: { onLogout: () => void }) {
   return (
     <Switch>
       {/* Standalone pages without sidebar - Caminhoneiro, Empresa, Manutenção */}
+      <Route path="/corretiva/motorista">
+        <Corretiva mode="caminhoneiro" />
+      </Route>
+      <Route path="/corretiva/empresa">
+        <Corretiva mode="empresa" />
+      </Route>
       <Route path="/corretiva/:step?">
         {(params) => <Corretiva step={params.step as any} />}
       </Route>
