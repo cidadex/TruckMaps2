@@ -2155,12 +2155,12 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
   };
 
   // Header Component
-  const Header = ({ showBack = false, onBack, title = "Manutenção Corretiva" }: { showBack?: boolean; onBack?: () => void; title?: string }) => (
+  const Header = ({ showBack = false, onBack, title = "Manutenção Corretiva", showHome = true }: { showBack?: boolean; onBack?: () => void; title?: string; showHome?: boolean }) => (
     <div className="bg-white border-b border-slate-200 py-4 px-6 sticky top-0 z-50">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {showBack && (
-            <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors text-slate-600">
+            <button onClick={onBack} className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors text-slate-600" data-testid="btn-back">
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
@@ -2169,6 +2169,11 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             <span className="text-xl font-bold text-slate-800">{title}</span>
           </div>
         </div>
+        {showHome && step !== "home" && (
+          <button onClick={() => setStep("home")} className="p-2 rounded-full hover:bg-slate-100 transition-colors text-slate-500 hover:text-primary" data-testid="btn-home" title="Menu Principal">
+            <Home className="w-5 h-5" />
+          </button>
+        )}
       </div>
     </div>
   );
