@@ -160,16 +160,16 @@ export default function TruckPneumaticaMap({
       return (
         <div className="flex flex-col items-center gap-0.5">
           <div className="flex items-center gap-0.5 flex-shrink-0">
-            <button type="button" onClick={() => onPackageClick?.(id)}
-              className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onPackageClick?.(id); }}
+              className={`w-5 h-5 rounded flex items-center justify-center touch-manipulation ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
               <Package className="w-3 h-3" />
             </button>
-            <button type="button" onClick={() => onApprovalClick?.(id)}
-              className={`w-5 h-5 rounded flex items-center justify-center ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onApprovalClick?.(id); }}
+              className={`w-5 h-5 rounded flex items-center justify-center touch-manipulation ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
               <ShieldCheck className="w-3 h-3" />
             </button>
-            <button type="button" onClick={() => onCompleteClick?.(id)}
-              className={`w-5 h-5 rounded flex items-center justify-center ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onCompleteClick?.(id); }}
+              className={`w-5 h-5 rounded flex items-center justify-center touch-manipulation ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
               <CheckCircle2 className="w-3 h-3" />
             </button>
           </div>

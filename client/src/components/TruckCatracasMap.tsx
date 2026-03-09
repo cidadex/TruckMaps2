@@ -146,15 +146,15 @@ export default function TruckCatracasMap({
       return (
         <div className="flex flex-col items-center gap-0.5">
           <div className={`flex ${side === "left" ? "flex-row-reverse" : "flex-row"} items-center gap-0.5 flex-shrink-0`}>
-            <button type="button" onClick={() => onPackageClick?.(id)}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onPackageClick?.(id); }}
               className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${ms.aguardandoPeca ? "bg-amber-500 text-white" : "bg-slate-200 text-slate-500"}`}>
               <Package className="w-2.5 h-2.5" />
             </button>
-            <button type="button" onClick={() => onApprovalClick?.(id)}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onApprovalClick?.(id); }}
               className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${ms.aguardandoAprovacao ? "bg-purple-500 text-white" : "bg-slate-200 text-slate-500"}`}>
               <ShieldCheck className="w-2.5 h-2.5" />
             </button>
-            <button type="button" onClick={() => onCompleteClick?.(id)}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onCompleteClick?.(id); }}
               className={`w-4 h-4 rounded flex items-center justify-center touch-manipulation ${ms.executado ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
               <CheckCircle2 className="w-2.5 h-2.5" />
             </button>

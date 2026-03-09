@@ -50,7 +50,7 @@ export default function ZoomableMap({ children }: ZoomableMapProps) {
   const totalZoom = baseZoom * pinchZoom;
 
   return (
-    <div className="relative" data-testid="zoomable-map-wrapper">
+    <div className="relative overflow-auto" data-testid="zoomable-map-wrapper">
       {isZoomed && (
         <button
           type="button"
@@ -67,7 +67,11 @@ export default function ZoomableMap({ children }: ZoomableMapProps) {
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         className="touch-manipulation"
-        style={{ zoom: totalZoom }}
+        style={{
+          transform: `scale(${totalZoom})`,
+          transformOrigin: "top left",
+          width: `${100 / totalZoom}%`,
+        }}
       >
         {children}
       </div>

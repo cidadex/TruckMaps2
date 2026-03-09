@@ -90,3 +90,8 @@ The system serves multiple user roles including technicians, fleet managers, and
 ### Build Configuration
 - Production builds use esbuild for server bundling with selective dependency bundling
 - Client builds output to `dist/public` for static serving
+
+### Map Components
+- **ZoomableMap**: Uses `transform: scale()` for hardware-accelerated zoom (not CSS `zoom`)
+- **Action Icons**: All map action buttons (Package/Approval/Complete) use `e.stopPropagation()` and `touch-manipulation` for reliable touch interaction
+- **Modal Dialogs for Map Actions**: Peça (Package) and Aprovação (Approval) actions triggered from map icons open modal dialogs (not inline forms) since the inline forms only exist in the "Itens Não Mapeados" section for `[OUTROS]` items

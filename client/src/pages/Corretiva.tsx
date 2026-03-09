@@ -5962,6 +5962,96 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
           );
         })()}
 
+        {/* Modal Peça - Solicitar peça pelo mapa */}
+        {manutPecaItemId !== null && !selectedOSManut.itens.some(i => i.id === manutPecaItemId && i.descricao?.startsWith("[OUTROS]")) && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onClick={() => { setManutPecaItemId(null); setManutPecaText(""); }}>
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-100">
+                  <Package className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Solicitar Peça</h3>
+                  <p className="text-sm text-slate-500">
+                    {selectedOSManut.itens.find(i => i.id === manutPecaItemId)?.descricao?.replace(/^\[[^\]]*\]\s*/, "") || ""}
+                  </p>
+                </div>
+              </div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Peça necessária</label>
+              <input
+                value={manutPecaText}
+                onChange={(e) => setManutPecaText(e.target.value)}
+                placeholder="Descreva a peça necessária..."
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500"
+                autoFocus
+                data-testid="input-peca-modal"
+              />
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => { setManutPecaItemId(null); setManutPecaText(""); }} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl" data-testid="btn-cancelar-peca-modal">Cancelar</button>
+                <button
+                  onClick={async () => {
+                    if (manutPecaText.trim() && manutPecaItemId !== null) {
+                      await handleUpdateItemPeca(selectedOSManut.id, manutPecaItemId, true, manutPecaText.trim());
+                      setManutPecaItemId(null);
+                      setManutPecaText("");
+                    }
+                  }}
+                  disabled={!manutPecaText.trim()}
+                  className="flex-1 py-3 bg-amber-500 disabled:bg-slate-300 text-white font-bold text-sm rounded-xl"
+                  data-testid="btn-confirmar-peca-modal"
+                >
+                  Solicitar Peça
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Aprovação - Solicitar aprovação pelo mapa */}
+        {manutAprovacaoItemId !== null && !selectedOSManut.itens.some(i => i.id === manutAprovacaoItemId && i.descricao?.startsWith("[OUTROS]")) && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center" onClick={() => { setManutAprovacaoItemId(null); setManutAprovacaoText(""); }}>
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-100">
+                  <ShieldCheck className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">Solicitar Aprovação</h3>
+                  <p className="text-sm text-slate-500">
+                    {selectedOSManut.itens.find(i => i.id === manutAprovacaoItemId)?.descricao?.replace(/^\[[^\]]*\]\s*/, "") || ""}
+                  </p>
+                </div>
+              </div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Motivo da solicitação</label>
+              <input
+                value={manutAprovacaoText}
+                onChange={(e) => setManutAprovacaoText(e.target.value)}
+                placeholder="Descreva o motivo da aprovação..."
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500"
+                autoFocus
+                data-testid="input-aprovacao-modal"
+              />
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => { setManutAprovacaoItemId(null); setManutAprovacaoText(""); }} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl" data-testid="btn-cancelar-aprovacao-modal">Cancelar</button>
+                <button
+                  onClick={async () => {
+                    if (manutAprovacaoText.trim() && manutAprovacaoItemId !== null) {
+                      await handleUpdateItemAprovacao(selectedOSManut.id, manutAprovacaoItemId, true, manutAprovacaoText.trim());
+                      setManutAprovacaoItemId(null);
+                      setManutAprovacaoText("");
+                    }
+                  }}
+                  disabled={!manutAprovacaoText.trim()}
+                  className="flex-1 py-3 bg-purple-500 disabled:bg-slate-300 text-white font-bold text-sm rounded-xl"
+                  data-testid="btn-confirmar-aprovacao-modal"
+                >
+                  Solicitar Aprovação
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Concluir - Observação do mecânico ao finalizar pelo mapa */}
         {manutMapCompleteOpen && selectedOSManut.rodas && (() => {
           const rodasObj: Record<string, string> = (() => { try { return JSON.parse(selectedOSManut.rodas || "{}"); } catch { return {}; } })();
