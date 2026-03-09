@@ -2252,7 +2252,8 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
               );
             })}
 
-            {/* Botão Exportar Relatórios */}
+            {/* Botão Exportar Relatórios - só no painel equipe */}
+          {mode === "all" && (
           <button
             data-testid="button-export-reports"
             onClick={() => setShowExportModal(true)}
@@ -2263,6 +2264,7 @@ export default function Corretiva({ step: initialStep, mode = "all" }: { step?: 
             </div>
             <span className="text-left text-base">Exportar Relatórios</span>
           </button>
+          )}
 
           {/* Botão Limpar OS - TEMPORÁRIO - Só aparece no modo all */}
             {mode === "all" && (
